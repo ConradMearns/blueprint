@@ -2,6 +2,8 @@
 
 An infinite-canvas **ER diagram editor driven by [LinkML](https://linkml.io/)**.
 
+![blueprint rendering a LinkML schema as an ER diagram](docs/screenshot.png)
+
 Point it at a LinkML schema and blueprint paints an entity-relationship diagram —
 one table per class, columns from slots, and edges for the foreign-key
 relationships implied by slots whose range is another class. Tables can be
