@@ -134,3 +134,57 @@ classes:
 		expect(derived.identifierSlot).toBe('id');
 	});
 });
+
+describe('parseLinkML imports', () => {
+	const shared = `
+slots:
+  id:
+    identifier: true
+    range: integer
+  owner:
+    range: User
+`;
+	const main = `
+name: imported
+imports:
+  - shared
+  - linkml:types
+classes:
+  User:
+    slots: [id]
+  Widget:
+    slots: [id, owner]
+`;
+	const schema = parseLinkML(main, {
+		resolveImport: (name) => (name === 'shared' ? shared : null)
+	});
+
+	it('merges imported slots so classes can reference them', () => {
+		const widget = schema.classes.find((c) => c.name === 'Widget')!;
+		expect(widget.slots.map((s) => s.name)).toEqual(['id', 'owner']);
+		expect(widget.identifierSlot).toBe('id');
+	});
+
+	it('detects foreign keys through imported slots', () => {
+		expect(schema.foreignKeys).toEqual([
+			expect.objectContaining({
+				fromClass: 'Widget',
+				fromSlot: 'owner',
+				toClass: 'User',
+				toSlot: 'id'
+			})
+		]);
+	});
+
+	it('skips CURIE imports without reporting problems', () => {
+		// `linkml:types` resolves to null and must not break parsing.
+		expect(schema.problems).toEqual([]);
+	});
+
+	it('ignores imports entirely when no resolver is supplied', () => {
+		const noResolver = parseLinkML(main);
+		// Without a resolver the imported `owner` slot is unknown, so Widget has
+		// no `owner` column and therefore no foreign key.
+		expect(noResolver.foreignKeys).toEqual([]);
+	});
+});

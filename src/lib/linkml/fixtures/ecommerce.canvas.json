@@ -1,0 +1,336 @@
+{
+	"tables": [
+		{
+			"name": "Address",
+			"columns": [
+				{
+					"name": "city",
+					"type": "string",
+					"pk": false,
+					"fk": false,
+					"required": false,
+					"multivalued": false,
+					"unresolved": false
+				},
+				{
+					"name": "country",
+					"type": "string",
+					"pk": false,
+					"fk": false,
+					"required": false,
+					"multivalued": false,
+					"unresolved": false
+				},
+				{
+					"name": "customer",
+					"type": "Customer",
+					"pk": false,
+					"fk": true,
+					"required": true,
+					"multivalued": false,
+					"unresolved": false
+				},
+				{
+					"name": "id",
+					"type": "integer",
+					"pk": true,
+					"fk": false,
+					"required": false,
+					"multivalued": false,
+					"unresolved": false
+				},
+				{
+					"name": "line1",
+					"type": "string",
+					"pk": false,
+					"fk": false,
+					"required": true,
+					"multivalued": false,
+					"unresolved": false
+				}
+			]
+		},
+		{
+			"name": "Category",
+			"columns": [
+				{
+					"name": "id",
+					"type": "integer",
+					"pk": true,
+					"fk": false,
+					"required": false,
+					"multivalued": false,
+					"unresolved": false
+				},
+				{
+					"name": "name",
+					"type": "string",
+					"pk": false,
+					"fk": false,
+					"required": true,
+					"multivalued": false,
+					"unresolved": false
+				},
+				{
+					"name": "parent",
+					"type": "Category",
+					"pk": false,
+					"fk": true,
+					"required": false,
+					"multivalued": false,
+					"unresolved": false
+				}
+			]
+		},
+		{
+			"name": "Customer",
+			"columns": [
+				{
+					"name": "created_at",
+					"type": "datetime",
+					"pk": false,
+					"fk": false,
+					"required": false,
+					"multivalued": false,
+					"unresolved": false
+				},
+				{
+					"name": "email",
+					"type": "string",
+					"pk": false,
+					"fk": false,
+					"required": true,
+					"multivalued": false,
+					"unresolved": false
+				},
+				{
+					"name": "full_name",
+					"type": "string",
+					"pk": false,
+					"fk": false,
+					"required": true,
+					"multivalued": false,
+					"unresolved": false
+				},
+				{
+					"name": "id",
+					"type": "integer",
+					"pk": true,
+					"fk": false,
+					"required": false,
+					"multivalued": false,
+					"unresolved": false
+				}
+			]
+		},
+		{
+			"name": "Order",
+			"columns": [
+				{
+					"name": "customer",
+					"type": "Customer",
+					"pk": false,
+					"fk": true,
+					"required": true,
+					"multivalued": false,
+					"unresolved": false
+				},
+				{
+					"name": "id",
+					"type": "integer",
+					"pk": true,
+					"fk": false,
+					"required": false,
+					"multivalued": false,
+					"unresolved": false
+				},
+				{
+					"name": "placed_at",
+					"type": "datetime",
+					"pk": false,
+					"fk": false,
+					"required": false,
+					"multivalued": false,
+					"unresolved": false
+				},
+				{
+					"name": "ship_to",
+					"type": "Address",
+					"pk": false,
+					"fk": true,
+					"required": false,
+					"multivalued": false,
+					"unresolved": false
+				},
+				{
+					"name": "status",
+					"type": "order_status",
+					"pk": false,
+					"fk": false,
+					"required": false,
+					"multivalued": false,
+					"unresolved": false
+				}
+			]
+		},
+		{
+			"name": "OrderLine",
+			"columns": [
+				{
+					"name": "id",
+					"type": "integer",
+					"pk": true,
+					"fk": false,
+					"required": false,
+					"multivalued": false,
+					"unresolved": false
+				},
+				{
+					"name": "order",
+					"type": "Order",
+					"pk": false,
+					"fk": true,
+					"required": true,
+					"multivalued": false,
+					"unresolved": false
+				},
+				{
+					"name": "product",
+					"type": "Product",
+					"pk": false,
+					"fk": true,
+					"required": true,
+					"multivalued": false,
+					"unresolved": false
+				},
+				{
+					"name": "quantity",
+					"type": "integer",
+					"pk": false,
+					"fk": false,
+					"required": true,
+					"multivalued": false,
+					"unresolved": false
+				},
+				{
+					"name": "unit_price_cents",
+					"type": "integer",
+					"pk": false,
+					"fk": false,
+					"required": false,
+					"multivalued": false,
+					"unresolved": false
+				}
+			]
+		},
+		{
+			"name": "Product",
+			"columns": [
+				{
+					"name": "category",
+					"type": "Category",
+					"pk": false,
+					"fk": true,
+					"required": false,
+					"multivalued": false,
+					"unresolved": false
+				},
+				{
+					"name": "id",
+					"type": "integer",
+					"pk": true,
+					"fk": false,
+					"required": false,
+					"multivalued": false,
+					"unresolved": false
+				},
+				{
+					"name": "name",
+					"type": "string",
+					"pk": false,
+					"fk": false,
+					"required": true,
+					"multivalued": false,
+					"unresolved": false
+				},
+				{
+					"name": "price_cents",
+					"type": "integer",
+					"pk": false,
+					"fk": false,
+					"required": true,
+					"multivalued": false,
+					"unresolved": false
+				},
+				{
+					"name": "sku",
+					"type": "string",
+					"pk": false,
+					"fk": false,
+					"required": true,
+					"multivalued": false,
+					"unresolved": false
+				}
+			]
+		}
+	],
+	"edges": [
+		{
+			"fromClass": "Address",
+			"fromSlot": "customer",
+			"toClass": "Customer",
+			"toSlot": "id",
+			"required": true,
+			"multivalued": false
+		},
+		{
+			"fromClass": "Category",
+			"fromSlot": "parent",
+			"toClass": "Category",
+			"toSlot": "id",
+			"required": false,
+			"multivalued": false
+		},
+		{
+			"fromClass": "Order",
+			"fromSlot": "customer",
+			"toClass": "Customer",
+			"toSlot": "id",
+			"required": true,
+			"multivalued": false
+		},
+		{
+			"fromClass": "Order",
+			"fromSlot": "ship_to",
+			"toClass": "Address",
+			"toSlot": "id",
+			"required": false,
+			"multivalued": false
+		},
+		{
+			"fromClass": "OrderLine",
+			"fromSlot": "order",
+			"toClass": "Order",
+			"toSlot": "id",
+			"required": true,
+			"multivalued": false
+		},
+		{
+			"fromClass": "OrderLine",
+			"fromSlot": "product",
+			"toClass": "Product",
+			"toSlot": "id",
+			"required": true,
+			"multivalued": false
+		},
+		{
+			"fromClass": "Product",
+			"fromSlot": "category",
+			"toClass": "Category",
+			"toSlot": "id",
+			"required": false,
+			"multivalued": false
+		}
+	],
+	"problems": []
+}

@@ -35,6 +35,7 @@ interface RawSchema {
 	title?: string;
 	description?: string;
 	default_range?: string;
+	imports?: string[];
 	classes?: Record<string, RawClass>;
 	slots?: Record<string, RawSlot>;
 	types?: Record<string, unknown>;
@@ -61,15 +62,55 @@ interface RawSlot {
 	inlined_as_list?: boolean;
 }
 
+export interface ParseOptions {
+	/**
+	 * Resolve a LinkML `imports:` entry to the imported file's YAML text. Return
+	 * `null` to skip it (e.g. metamodel CURIEs like `linkml:types`, or a file that
+	 * can't be found). Without a resolver, `imports` are ignored — fine for the
+	 * browser, where there's no filesystem; see `$lib/server/parseFile` for disk.
+	 */
+	resolveImport?: (name: string) => string | null;
+}
+
+/** Merge imported definitions under the importing doc, which wins on name conflicts. */
+function mergeImport(into: RawSchema, from: RawSchema): void {
+	into.classes = { ...(from.classes ?? {}), ...(into.classes ?? {}) };
+	into.slots = { ...(from.slots ?? {}), ...(into.slots ?? {}) };
+	into.types = { ...(from.types ?? {}), ...(into.types ?? {}) };
+	into.enums = { ...(from.enums ?? {}), ...(into.enums ?? {}) };
+}
+
+/** Parse a doc and recursively fold its `imports` into one combined raw schema. */
+function resolveImports(
+	yamlText: string,
+	resolve: ParseOptions['resolveImport'],
+	seen: Set<string>
+): RawSchema {
+	const doc = (parseYaml(yamlText) ?? {}) as RawSchema;
+	if (!resolve || !Array.isArray(doc.imports)) return doc;
+	for (const name of doc.imports) {
+		if (seen.has(name)) continue;
+		seen.add(name);
+		const text = resolve(name);
+		if (text == null) continue;
+		mergeImport(doc, resolveImports(text, resolve, seen));
+	}
+	return doc;
+}
+
 /**
  * Parse a LinkML YAML document into the ER model we render.
  *
  * Supports the commonly-used subset: top-level `classes` with inline
  * `attributes` and/or referenced `slots`, reusable top-level `slots`,
- * `slot_usage` overrides, and `is_a` / `mixins` inheritance.
+ * `slot_usage` overrides, `is_a` / `mixins` inheritance, and `imports` (when a
+ * resolver is supplied). Slots and attributes are treated interchangeably, and
+ * imported slots/classes/types/enums are merged before interpretation — so a
+ * schema that imports its slots from another file builds the same canvas as the
+ * equivalent single-file, attribute-based schema.
  */
-export function parseLinkML(yamlText: string): ParsedSchema {
-	const doc = (parseYaml(yamlText) ?? {}) as RawSchema;
+export function parseLinkML(yamlText: string, opts: ParseOptions = {}): ParsedSchema {
+	const doc = resolveImports(yamlText, opts.resolveImport, new Set());
 
 	const rawClasses = doc.classes ?? {};
 	const rawSlots = doc.slots ?? {};

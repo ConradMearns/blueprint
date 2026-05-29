@@ -92,9 +92,15 @@ bun run build      # production build
 ### LinkML subset supported
 
 `classes` with inline `attributes` and/or referenced top-level `slots`,
-reusable `slots`, `slot_usage` overrides, and `is_a` / `mixins` inheritance.
-A slot is treated as a **foreign key** when its `range` matches another class
-name; `identifier: true` (or `key: true`) marks the **primary key**.
+reusable `slots`, `slot_usage` overrides, `is_a` / `mixins` inheritance, and
+`imports` (slots/classes/types/enums pulled from sibling files, resolved on disk
+by `bp`). Attributes and slots are interchangeable. A slot is treated as a
+**foreign key** when its `range` matches another class name; `identifier: true`
+(or `key: true`) marks the **primary key**.
+
+Equivalence across these representations is locked down by
+`src/lib/linkml/fixtures/` — every variant of the ecommerce schema must produce
+the same canvas (see that folder's README).
 
 ## Issue tracking
 
