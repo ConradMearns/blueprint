@@ -71,6 +71,47 @@ describe('parseLinkML', () => {
 	});
 });
 
+describe('parseLinkML validation', () => {
+	// Order has been deleted, but OrderLine.order still points at it.
+	const schema = parseLinkML(`
+name: shop
+classes:
+  OrderLine:
+    attributes:
+      id: { identifier: true, range: integer }
+      order: { range: Order, required: true }
+      note: { range: string }
+enums:
+  status:
+    permissible_values:
+      open:
+`);
+
+	it('flags a slot whose range is an unknown class/type/enum', () => {
+		const orderLine = schema.classes.find((c) => c.name === 'OrderLine')!;
+		expect(orderLine.slots.find((s) => s.name === 'order')?.unresolved).toBe(true);
+	});
+
+	it('reports the broken reference as a problem', () => {
+		expect(schema.problems).toHaveLength(1);
+		expect(schema.problems[0]).toMatchObject({
+			level: 'error',
+			className: 'OrderLine',
+			slot: 'order'
+		});
+	});
+
+	it('does not create a foreign key for an unresolved range', () => {
+		expect(schema.foreignKeys).toHaveLength(0);
+	});
+
+	it('does not flag valid builtins or enums', () => {
+		const orderLine = schema.classes.find((c) => c.name === 'OrderLine')!;
+		expect(orderLine.slots.find((s) => s.name === 'note')?.unresolved).toBe(false);
+		expect(orderLine.slots.find((s) => s.name === 'id')?.unresolved).toBe(false);
+	});
+});
+
 describe('parseLinkML inheritance', () => {
 	const schema = parseLinkML(`
 name: inherit

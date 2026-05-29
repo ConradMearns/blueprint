@@ -12,6 +12,7 @@
 		type LayoutMap
 	} from '$lib/linkml/toFlow';
 	import { loadLayout, saveLayout, clearLayout } from '$lib/layout/store';
+	import type { SchemaProblem } from '$lib/linkml/types';
 
 	import exampleYaml from '$lib/examples/ecommerce.linkml.yaml?raw';
 
@@ -23,6 +24,7 @@
 	let schemaName = $state('schema');
 	let classCount = $state(0);
 	let fkCount = $state(0);
+	let problems = $state<SchemaProblem[]>([]);
 	let error = $state<string | null>(null);
 	let panelOpen = $state(true);
 	let ready = $state(false);
@@ -53,6 +55,7 @@
 			schemaName = schema.name;
 			classCount = schema.classes.length;
 			fkCount = schema.foreignKeys.length;
+			problems = schema.problems;
 			nodes = flow.nodes;
 			edges = flow.edges;
 			error = null;
@@ -188,7 +191,20 @@
 			<div class="stats">
 				<span><strong>{classCount}</strong> classes</span>
 				<span><strong>{fkCount}</strong> relations</span>
+				<span class:bad={problems.length > 0}>
+					<strong>{problems.length}</strong> issues
+				</span>
 			</div>
+
+			{#if problems.length}
+				<ul class="problems">
+					{#each problems as p (p.className + '.' + p.slot)}
+						<li title={p.message}>
+							⚠️ <code>{p.className}.{p.slot}</code> — {p.message}
+						</li>
+					{/each}
+				</ul>
+			{/if}
 
 			<div class="actions">
 				{#if serverBacked}
@@ -348,6 +364,30 @@
 	}
 	.stats strong {
 		color: #f8fafc;
+	}
+	.stats .bad strong {
+		color: #f87171;
+	}
+
+	.problems {
+		list-style: none;
+		margin: 0;
+		padding: 8px 10px;
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+		max-height: 140px;
+		overflow-y: auto;
+		font-size: 11px;
+		line-height: 1.4;
+		background: #450a0a;
+		color: #fecaca;
+		border: 1px solid #7f1d1d;
+		border-radius: 6px;
+	}
+	.problems code {
+		color: #fca5a5;
+		font-family: ui-monospace, SFMono-Regular, monospace;
 	}
 
 	.actions {

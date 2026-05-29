@@ -16,17 +16,17 @@
 
 	<div class="cols">
 		{#each table.columns as col (col.name)}
-			<div class="row" class:pk={col.pk} class:fk={col.fk}>
+			<div class="row" class:pk={col.pk} class:fk={col.fk} class:unresolved={col.unresolved}>
 				<!-- Per-row connection points; xyflow measures their real DOM position. -->
 				<Handle type="target" position={Position.Left} id={`t-${col.name}`} class="row-handle" />
 
 				<span class="marker">
-					{#if col.pk}🔑{:else if col.fk}🔗{:else}&nbsp;{/if}
+					{#if col.unresolved}⚠️{:else if col.pk}🔑{:else if col.fk}🔗{:else}&nbsp;{/if}
 				</span>
 				<span class="name">
 					{col.name}{#if col.required}<span class="req" title="required">*</span>{/if}
 				</span>
-				<span class="type">
+				<span class="type" title={col.unresolved ? `Unknown range "${col.type}"` : undefined}>
 					{col.type}{#if col.multivalued}[]{/if}
 				</span>
 
@@ -93,6 +93,14 @@
 	}
 	.row.fk {
 		background: #eff6ff;
+	}
+	.row.unresolved {
+		background: #fef2f2;
+		box-shadow: inset 3px 0 0 #dc2626;
+	}
+	.row.unresolved .name,
+	.row.unresolved .type {
+		color: #b91c1c;
 	}
 
 	.marker {

@@ -1,14 +1,33 @@
 import { parse as parseYaml } from 'yaml';
-import type { ParsedSchema, ParsedClass, ParsedSlot, ForeignKey } from './types';
+import type { ParsedSchema, ParsedClass, ParsedSlot, ForeignKey, SchemaProblem } from './types';
 
 /**
- * We classify a slot as a relationship (foreign key) when its `range` matches
- * the name of a class in the schema. Any other range — a LinkML builtin type
- * (`string`, `integer`, `datetime`, …), an enum, or an unknown name — is a
- * scalar column.
+ * LinkML builtin scalar types. A slot's `range` resolves to one of these, a
+ * schema-defined `type`/`enum` (a scalar column), or a class (a foreign key).
+ * Anything else is a broken reference and is reported as a problem.
  *
  * @see https://linkml.io/linkml-model/latest/docs/specification/03types/
  */
+const BUILTIN_TYPES = new Set([
+	'string',
+	'integer',
+	'boolean',
+	'float',
+	'double',
+	'decimal',
+	'time',
+	'date',
+	'datetime',
+	'uriorcurie',
+	'curie',
+	'uri',
+	'ncname',
+	'objectidentifier',
+	'nodeidentifier',
+	'jsonpointer',
+	'jsonpath',
+	'sparqlpath'
+]);
 
 /** Loosely-typed view of a raw LinkML document after YAML parsing. */
 interface RawSchema {
@@ -57,6 +76,12 @@ export function parseLinkML(yamlText: string): ParsedSchema {
 	const defaultRange = doc.default_range ?? 'string';
 
 	const classNames = new Set(Object.keys(rawClasses));
+	// Ranges that resolve to a scalar column rather than a relationship.
+	const scalarRanges = new Set<string>([
+		...BUILTIN_TYPES,
+		...Object.keys(doc.types ?? {}),
+		...Object.keys(doc.enums ?? {})
+	]);
 
 	/** Merge slot definition layers (top-level slot → local def → slot_usage) into one resolved slot. */
 	function resolveSlot(name: string, ...layers: (RawSlot | undefined)[]): ParsedSlot {
@@ -72,7 +97,8 @@ export function parseLinkML(yamlText: string): ParsedSchema {
 			key: !!merged.key,
 			description: merged.description,
 			inlined: !!merged.inlined || !!merged.inlined_as_list,
-			refClass: isClassRef ? range : undefined
+			refClass: isClassRef ? range : undefined,
+			unresolved: !isClassRef && !scalarRanges.has(range)
 		};
 	}
 
@@ -118,8 +144,18 @@ export function parseLinkML(yamlText: string): ParsedSchema {
 
 	const byName = new Map(classes.map((c) => [c.name, c]));
 	const foreignKeys: ForeignKey[] = [];
+	const problems: SchemaProblem[] = [];
 	for (const c of classes) {
 		for (const s of c.slots) {
+			if (s.unresolved) {
+				problems.push({
+					level: 'error',
+					className: c.name,
+					slot: s.name,
+					message: `range "${s.range}" is not a known class, type, or enum`
+				});
+				continue;
+			}
 			if (!s.refClass) continue;
 			foreignKeys.push({
 				id: `${c.name}.${s.name}->${s.refClass}`,
@@ -138,6 +174,7 @@ export function parseLinkML(yamlText: string): ParsedSchema {
 		title: doc.title,
 		description: doc.description,
 		classes,
-		foreignKeys
+		foreignKeys,
+		problems
 	};
 }

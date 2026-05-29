@@ -12,6 +12,8 @@ export interface TableColumn {
 	fk: boolean;
 	required: boolean;
 	multivalued: boolean;
+	/** True when the column's range does not resolve to a known class/type/enum. */
+	unresolved: boolean;
 }
 
 /** Data payload carried by a `table` node. Index signature keeps xyflow's `Node` happy. */
@@ -67,7 +69,8 @@ export function schemaToFlow(
 				pk: s.identifier || s.key,
 				fk: !!s.refClass,
 				required: s.required,
-				multivalued: s.multivalued
+				multivalued: s.multivalued,
+				unresolved: s.unresolved
 			}))
 		}
 	}));

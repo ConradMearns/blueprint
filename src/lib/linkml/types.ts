@@ -21,6 +21,8 @@ export interface ParsedSlot {
 	inlined: boolean;
 	/** Set when `range` resolves to another class in the schema (a foreign key). */
 	refClass?: string;
+	/** True when `range` is not a known class, enum, type, or builtin (a broken reference). */
+	unresolved: boolean;
 }
 
 export interface ParsedClass {
@@ -46,10 +48,19 @@ export interface ForeignKey {
 	required: boolean;
 }
 
+/** A semantic problem found while interpreting the schema (not a YAML syntax error). */
+export interface SchemaProblem {
+	level: 'error' | 'warning';
+	className: string;
+	slot: string;
+	message: string;
+}
+
 export interface ParsedSchema {
 	name: string;
 	title?: string;
 	description?: string;
 	classes: ParsedClass[];
 	foreignKeys: ForeignKey[];
+	problems: SchemaProblem[];
 }
