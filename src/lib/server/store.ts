@@ -24,6 +24,13 @@ export function layoutPath(): string | null {
 	return env.BP_LAYOUT ? resolve(env.BP_LAYOUT) : neighborPath(target);
 }
 
+// The exact text/JSON we last wrote, so the file watcher can tell our own
+// saves apart from genuine external edits and avoid an echo loop.
+let lastSchemaWrite: string | null = null;
+let lastLayoutWrite: string | null = null;
+export const lastWrittenSchema = (): string | null => lastSchemaWrite;
+export const lastWrittenLayout = (): string | null => lastLayoutWrite;
+
 export function readSchema(): string | null {
 	const target = schemaPath();
 	if (!target || !existsSync(target)) return null;
@@ -43,11 +50,14 @@ export function readLayout(): LayoutMap {
 export function writeLayout(layout: LayoutMap): void {
 	const path = layoutPath();
 	if (!path) throw new Error('No layout file configured (browser mode)');
-	writeFileSync(path, `${JSON.stringify(layout, null, 2)}\n`);
+	const out = `${JSON.stringify(layout, null, 2)}\n`;
+	lastLayoutWrite = out;
+	writeFileSync(path, out);
 }
 
 export function writeSchema(yaml: string): void {
 	const target = schemaPath();
 	if (!target) throw new Error('No schema file configured (browser mode)');
+	lastSchemaWrite = yaml;
 	writeFileSync(target, yaml);
 }

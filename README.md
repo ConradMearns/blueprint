@@ -40,7 +40,10 @@ In this **file-backed mode**:
 
 - the schema is read from `mydb.yaml`;
 - table positions autosave to a **neighbor file `mydb.bp.json`** as you drag;
-- edits in the sidebar autosave back to `mydb.yaml` (when they parse cleanly).
+- edits in the sidebar autosave back to `mydb.yaml` (when they parse cleanly);
+- the server **watches both files** and pushes external changes to the canvas
+  live (over SSE), so editing `mydb.yaml` in another editor updates the diagram
+  — the app's own saves are suppressed so they don't echo back.
 
 The schema stays the source of truth for _what_ to draw; `mydb.bp.json` only
 holds _where_. Commit the schema, optionally commit the layout, ignore neither.
@@ -70,18 +73,19 @@ bun run build      # production build
 
 ## How it works
 
-| Concern                       | Module                                |
-| ----------------------------- | ------------------------------------- |
-| Parse LinkML → ER model       | `src/lib/linkml/parse.ts`             |
-| ER model types                | `src/lib/linkml/types.ts`             |
-| Model + layout → flow graph   | `src/lib/linkml/toFlow.ts`            |
-| Layout persistence (browser)  | `src/lib/layout/store.ts`             |
-| Disk read/write (file-backed) | `src/lib/server/store.ts`             |
-| Neighbor path (`.bp.json`)    | `src/lib/server/paths.ts`             |
-| Schema/layout HTTP endpoints  | `src/routes/api/{schema,layout}/`     |
-| `bp` CLI launcher             | `bin/bp.js`                           |
-| Table node rendering          | `src/lib/components/TableNode.svelte` |
-| Canvas + editor               | `src/routes/+page.svelte`             |
+| Concern                       | Module                                             |
+| ----------------------------- | -------------------------------------------------- |
+| Parse LinkML → ER model       | `src/lib/linkml/parse.ts`                          |
+| ER model types                | `src/lib/linkml/types.ts`                          |
+| Model + layout → flow graph   | `src/lib/linkml/toFlow.ts`                         |
+| Layout persistence (browser)  | `src/lib/layout/store.ts`                          |
+| Disk read/write (file-backed) | `src/lib/server/store.ts`                          |
+| Neighbor path (`.bp.json`)    | `src/lib/server/paths.ts`                          |
+| Schema/layout HTTP endpoints  | `src/routes/api/{schema,layout}/`                  |
+| File watcher → SSE            | `src/lib/server/watch.ts`, `src/routes/api/watch/` |
+| `bp` CLI launcher             | `bin/bp.js`                                        |
+| Table node rendering          | `src/lib/components/TableNode.svelte`              |
+| Canvas + editor               | `src/routes/+page.svelte`                          |
 
 ### LinkML subset supported
 

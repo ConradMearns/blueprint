@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import { SvelteFlow, Background, Controls, MiniMap, Panel, type Edge } from '@xyflow/svelte';
 	import '@xyflow/svelte/dist/style.css';
 
@@ -34,6 +34,8 @@
 	let fileName = $state<string | null>(null);
 	let layoutName = $state<string | null>(null);
 	let saveState = $state<'idle' | 'saving' | 'saved' | 'error'>('idle');
+	let watching = $state(false);
+	let source: EventSource | null = null;
 
 	// Working positions, seeded from disk or localStorage and updated on drag.
 	let layout: LayoutMap = {};
@@ -123,6 +125,34 @@
 		if (file) yamlText = await file.text();
 	}
 
+	/** Apply a change the server detected on disk, without echoing it back. */
+	function applyExternal(event: { type: string; yaml?: string; layout?: LayoutMap }) {
+		if (event.type === 'schema' && typeof event.yaml === 'string') {
+			// Don't clobber unsaved local edits; otherwise adopt the on-disk version.
+			if (yamlText === lastSavedYaml && event.yaml !== yamlText) {
+				lastSavedYaml = event.yaml; // mark in-sync so the autosave effect skips it
+				yamlText = event.yaml; // triggers the debounced rebuild
+			}
+		} else if (event.type === 'layout' && event.layout) {
+			layout = event.layout;
+			rebuild(yamlText);
+		}
+	}
+
+	/** Subscribe to on-disk changes via Server-Sent Events (file-backed mode). */
+	function startWatching() {
+		source = new EventSource('/api/watch');
+		source.onopen = () => (watching = true);
+		source.onerror = () => (watching = false); // EventSource auto-reconnects
+		source.onmessage = (ev) => {
+			try {
+				applyExternal(JSON.parse(ev.data));
+			} catch {
+				// ignore malformed events
+			}
+		};
+	}
+
 	onMount(async () => {
 		try {
 			const res = await fetch('/api/schema');
@@ -149,7 +179,11 @@
 		lastSavedYaml = yamlText;
 		rebuild(yamlText);
 		ready = true;
+
+		if (serverBacked) startWatching();
 	});
+
+	onDestroy(() => source?.close());
 
 	// Debounced live re-parse; in file-backed mode also autosave valid edits to disk.
 	$effect(() => {
@@ -180,7 +214,14 @@
 		{#if panelOpen}
 			{#if serverBacked}
 				<div class="file">
-					<span class="path" title={fileName ?? ''}>📄 {fileName}</span>
+					<span class="path" title={fileName ?? ''}>
+						<span
+							class="watch-dot"
+							class:live={watching}
+							title={watching ? 'watching for changes' : 'not watching'}
+						></span>
+						📄 {fileName}
+					</span>
 					<span class="layout-path" title={layoutName ?? ''}>↳ {layoutName}</span>
 					<span class="save-state {saveState}">{saveLabel}</span>
 				</div>
@@ -333,11 +374,25 @@
 		padding: 8px 10px;
 	}
 	.file .path {
+		display: flex;
+		align-items: center;
+		gap: 6px;
 		font-weight: 600;
 		color: #f8fafc;
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
+	}
+	.watch-dot {
+		width: 7px;
+		height: 7px;
+		border-radius: 50%;
+		background: #475569;
+		flex: none;
+	}
+	.watch-dot.live {
+		background: #4ade80;
+		box-shadow: 0 0 0 2px rgba(74, 222, 128, 0.25);
 	}
 	.file .layout-path {
 		color: #64748b;

@@ -76,9 +76,9 @@ classes:
       id:
         identifier: true
         range: integer
-      order:
-        range: Order
-        required: true
+      # order:
+      #   range: Order
+      #   required: true
       product:
         range: Product
         required: true
