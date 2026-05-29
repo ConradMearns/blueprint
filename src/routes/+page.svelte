@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { SvelteFlow, Background, Controls, MiniMap, Panel, type Edge } from '@xyflow/svelte';
 	import '@xyflow/svelte/dist/style.css';
 
@@ -24,12 +25,30 @@
 	let fkCount = $state(0);
 	let error = $state<string | null>(null);
 	let panelOpen = $state(true);
+	let ready = $state(false);
 
-	/** Re-parse the LinkML and rebuild the canvas, preserving any saved positions. */
+	// File-backed (bp CLI) state. In browser mode all of these stay falsy.
+	let serverBacked = $state(false);
+	let fileName = $state<string | null>(null);
+	let layoutName = $state<string | null>(null);
+	let saveState = $state<'idle' | 'saving' | 'saved' | 'error'>('idle');
+
+	// Working positions, seeded from disk or localStorage and updated on drag.
+	let layout: LayoutMap = {};
+	let lastSavedYaml = '';
+
+	const postJSON = (url: string, body: unknown) =>
+		fetch(url, {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify(body)
+		});
+
+	/** Re-parse the LinkML and rebuild the canvas, preserving current positions. */
 	function rebuild(text: string) {
 		try {
 			const schema = parseLinkML(text);
-			const layout = autoLayout(schema, loadLayout(schema.name));
+			layout = autoLayout(schema, layout);
 			const flow = schemaToFlow(schema, layout);
 			schemaName = schema.name;
 			classCount = schema.classes.length;
@@ -42,15 +61,44 @@
 		}
 	}
 
-	/** Snapshot current node positions into the separate layout file. */
-	function persist() {
-		const layout: LayoutMap = {};
-		for (const n of nodes) layout[n.id] = { x: n.position.x, y: n.position.y };
-		saveLayout(schemaName, layout);
+	function snapshot(): LayoutMap {
+		const next: LayoutMap = {};
+		for (const n of nodes) next[n.id] = { x: n.position.x, y: n.position.y };
+		return next;
 	}
 
-	function resetLayout() {
-		clearLayout(schemaName);
+	/** Persist positions: to the .bp.json neighbor on disk, or localStorage in browser mode. */
+	async function persistLayout() {
+		layout = snapshot();
+		if (serverBacked) {
+			saveState = 'saving';
+			try {
+				await postJSON('/api/layout', { layout });
+				saveState = 'saved';
+			} catch {
+				saveState = 'error';
+			}
+		} else {
+			saveLayout(schemaName, layout);
+		}
+	}
+
+	/** Persist schema text back to the source file (file-backed mode only). */
+	async function persistSchema(text: string) {
+		saveState = 'saving';
+		try {
+			await postJSON('/api/schema', { yaml: text });
+			lastSavedYaml = text;
+			saveState = 'saved';
+		} catch {
+			saveState = 'error';
+		}
+	}
+
+	async function resetLayout() {
+		layout = {};
+		if (serverBacked) await postJSON('/api/layout', { layout: {} }).catch(() => {});
+		else clearLayout(schemaName);
 		rebuild(yamlText);
 	}
 
@@ -64,9 +112,7 @@
 	}
 
 	function exportLayout() {
-		const layout: LayoutMap = {};
-		for (const n of nodes) layout[n.id] = { x: n.position.x, y: n.position.y };
-		download(`${schemaName}.layout.json`, JSON.stringify(layout, null, 2), 'application/json');
+		download(`${schemaName}.bp.json`, JSON.stringify(snapshot(), null, 2), 'application/json');
 	}
 
 	async function onFile(e: Event) {
@@ -74,12 +120,49 @@
 		if (file) yamlText = await file.text();
 	}
 
-	// Debounced live re-parse — runs in the browser after mount.
+	onMount(async () => {
+		try {
+			const res = await fetch('/api/schema');
+			const data = await res.json();
+			if (data.serverBacked) {
+				serverBacked = true;
+				fileName = data.fileName;
+				layoutName = data.layoutName;
+				if (typeof data.yaml === 'string' && data.yaml.length) yamlText = data.yaml;
+				layout = (data.layout as LayoutMap) ?? {};
+			}
+		} catch {
+			// No server (static browser build) — fall through to browser mode.
+		}
+
+		if (!serverBacked) {
+			try {
+				layout = loadLayout(parseLinkML(yamlText).name);
+			} catch {
+				layout = {};
+			}
+		}
+
+		lastSavedYaml = yamlText;
+		rebuild(yamlText);
+		ready = true;
+	});
+
+	// Debounced live re-parse; in file-backed mode also autosave valid edits to disk.
 	$effect(() => {
 		const text = yamlText;
-		const t = setTimeout(() => rebuild(text), 250);
+		if (!ready) return;
+		if (serverBacked && text !== lastSavedYaml) saveState = 'idle';
+		const t = setTimeout(() => {
+			rebuild(text);
+			if (serverBacked && error === null && text !== lastSavedYaml) persistSchema(text);
+		}, 400);
 		return () => clearTimeout(t);
 	});
+
+	const saveLabel = $derived(
+		{ idle: '', saving: 'saving…', saved: 'saved ✓', error: 'save failed' }[saveState]
+	);
 </script>
 
 <div class="app">
@@ -92,7 +175,15 @@
 		</div>
 
 		{#if panelOpen}
-			<p class="sub">LinkML → ER canvas. Edit the schema; drag tables to lay them out.</p>
+			{#if serverBacked}
+				<div class="file">
+					<span class="path" title={fileName ?? ''}>📄 {fileName}</span>
+					<span class="layout-path" title={layoutName ?? ''}>↳ {layoutName}</span>
+					<span class="save-state {saveState}">{saveLabel}</span>
+				</div>
+			{:else}
+				<p class="sub">Browser mode — drag tables; layout is saved to localStorage.</p>
+			{/if}
 
 			<div class="stats">
 				<span><strong>{classCount}</strong> classes</span>
@@ -100,15 +191,20 @@
 			</div>
 
 			<div class="actions">
-				<label class="file-btn">
-					Load .yaml
-					<input type="file" accept=".yaml,.yml,.txt" onchange={onFile} />
-				</label>
-				<button onclick={() => download(`${schemaName}.linkml.yaml`, yamlText, 'text/yaml')}>
-					Save schema
-				</button>
-				<button onclick={exportLayout}>Export layout</button>
-				<button onclick={resetLayout}>Reset layout</button>
+				{#if serverBacked}
+					<button onclick={resetLayout}>Reset layout</button>
+					<button onclick={exportLayout}>Export layout copy</button>
+				{:else}
+					<label class="file-btn">
+						Load .yaml
+						<input type="file" accept=".yaml,.yml,.txt" onchange={onFile} />
+					</label>
+					<button onclick={() => download(`${schemaName}.linkml.yaml`, yamlText, 'text/yaml')}>
+						Save schema
+					</button>
+					<button onclick={exportLayout}>Export layout</button>
+					<button onclick={resetLayout}>Reset layout</button>
+				{/if}
 			</div>
 
 			{#if error}
@@ -120,17 +216,26 @@
 	</aside>
 
 	<main>
-		<SvelteFlow bind:nodes bind:edges {nodeTypes} fitView minZoom={0.1} onnodedragstop={persist}>
-			<Background />
-			<Controls />
-			<MiniMap pannable zoomable />
-			<Panel position="top-right">
-				<div class="legend">
-					<span><span class="dot pk"></span> primary key</span>
-					<span><span class="dot fk"></span> foreign key</span>
-				</div>
-			</Panel>
-		</SvelteFlow>
+		{#if ready}
+			<SvelteFlow
+				bind:nodes
+				bind:edges
+				{nodeTypes}
+				fitView
+				minZoom={0.1}
+				onnodedragstop={persistLayout}
+			>
+				<Background />
+				<Controls />
+				<MiniMap pannable zoomable />
+				<Panel position="top-right">
+					<div class="legend">
+						<span><span class="dot pk"></span> primary key</span>
+						<span><span class="dot fk"></span> foreign key</span>
+					</div>
+				</Panel>
+			</SvelteFlow>
+		{/if}
 	</main>
 </div>
 
@@ -199,6 +304,40 @@
 		font-size: 12px;
 		color: #94a3b8;
 		margin: 0;
+	}
+
+	.file {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+		font-size: 12px;
+		background: #020617;
+		border: 1px solid #1e293b;
+		border-radius: 6px;
+		padding: 8px 10px;
+	}
+	.file .path {
+		font-weight: 600;
+		color: #f8fafc;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.file .layout-path {
+		color: #64748b;
+		font-family: ui-monospace, SFMono-Regular, monospace;
+		font-size: 11px;
+	}
+	.save-state {
+		font-size: 11px;
+		min-height: 13px;
+		color: #94a3b8;
+	}
+	.save-state.saved {
+		color: #4ade80;
+	}
+	.save-state.error {
+		color: #f87171;
 	}
 
 	.stats {

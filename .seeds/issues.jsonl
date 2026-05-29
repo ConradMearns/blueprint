@@ -9,3 +9,5 @@
 {"id":"blueprint-4889","title":"Layered auto-layout (dagre) instead of grid","status":"open","type":"feature","priority":3,"createdAt":"2026-05-29T15:23:12.962Z","updatedAt":"2026-05-29T15:23:12.962Z"}
 {"id":"blueprint-2a59","title":"Pick FK handle side (left/right) by relative node position","status":"open","type":"task","priority":3,"createdAt":"2026-05-29T15:23:13.057Z","updatedAt":"2026-05-29T15:23:13.057Z"}
 {"id":"blueprint-49b8","title":"Import layout JSON from file (export already exists)","status":"open","type":"task","priority":3,"createdAt":"2026-05-29T15:23:13.158Z","updatedAt":"2026-05-29T15:23:13.158Z"}
+{"id":"blueprint-364c","title":"bp CLI: file-backed mode (read yaml, autosave .bp.json neighbor)","status":"closed","type":"feature","priority":1,"createdAt":"2026-05-29T15:38:54.610Z","updatedAt":"2026-05-29T15:43:31.398Z","closedAt":"2026-05-29T15:43:31.398Z"}
+{"id":"blueprint-2e02","title":"Switch to adapter-node + server API for fs read/write","status":"closed","type":"task","priority":1,"createdAt":"2026-05-29T15:38:54.722Z","updatedAt":"2026-05-29T15:43:31.398Z","closedAt":"2026-05-29T15:43:31.398Z"}
