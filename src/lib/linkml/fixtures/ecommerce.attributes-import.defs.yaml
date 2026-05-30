@@ -1,0 +1,108 @@
+# Imported by ecommerce.attributes-import.yaml.
+# Put the attribute-based class definitions here (classes: ... attributes: ...).
+
+id: https://example.org/ecommerce-attribute-classes
+name: ecommerce-attribute-classes
+title: E-Commerce Store
+description: Example LinkML schema describing a small online store.
+default_range: string
+
+prefixes:
+  linkml: https://w3id.org/linkml/
+
+classes:
+  Customer:
+    description: A registered shopper.
+    attributes:
+      id:
+        identifier: true
+        range: integer
+      email:
+        range: string
+        required: true
+      full_name:
+        range: string
+        required: true
+      created_at:
+        range: datetime
+
+  Address:
+    description: A shipping or billing address.
+    attributes:
+      id:
+        identifier: true
+        range: integer
+      customer:
+        range: Customer
+        required: true
+      line1:
+        range: string
+        required: true
+      city:
+        range: string
+      country:
+        range: string
+
+  Category:
+    description: A product category (can nest via parent).
+    attributes:
+      id:
+        identifier: true
+        range: integer
+      name:
+        range: string
+        required: true
+      parent:
+        range: Category
+
+  Product:
+    description: An item for sale.
+    attributes:
+      id:
+        identifier: true
+        range: integer
+      sku:
+        range: string
+        required: true
+      name:
+        range: string
+        required: true
+      price_cents:
+        range: integer
+        required: true
+      category:
+        range: Category
+
+  Order:
+    description: A customer order.
+    attributes:
+      id:
+        identifier: true
+        range: integer
+      customer:
+        range: Customer
+        required: true
+      ship_to:
+        range: Address
+      status:
+        range: order_status
+      placed_at:
+        range: datetime
+
+  OrderLine:
+    description: A single line item within an order.
+    attributes:
+      id:
+        identifier: true
+        range: integer
+      order:
+        range: Order
+        required: true
+      product:
+        range: Product
+        required: true
+      quantity:
+        range: integer
+        required: true
+      unit_price_cents:
+        range: integer

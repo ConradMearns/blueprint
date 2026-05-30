@@ -1,0 +1,83 @@
+# Slot-based ecommerce, with slots IMPORTED from a sibling file (ENTRY FILE).
+# Use:  imports:
+#         - ecommerce.slots-import.defs
+# Classes here reference the imported slots via `slots: [...]`.
+# See README.md.
+
+# Slot-based ecommerce — SINGLE FILE, no imports.
+# Define top-level `slots:` and have each class reference them via `slots: [...]`
+# (use `slot_usage` for any per-class overrides). No `attributes:`.
+# Goal: produce the same canvas as ../../examples/ecommerce.linkml.yaml
+# (compared against ecommerce.canvas.json). See README.md.
+
+id: https://example.org/ecommerce
+name: ecommerce
+title: E-Commerce Store
+description: Example LinkML schema describing a small online store.
+default_range: string
+
+imports:
+  - ecommerce.slots-import.defs
+
+prefixes:
+  linkml: https://w3id.org/linkml/
+
+classes:
+  Customer:
+    description: A registered shopper.
+    slots:
+      - id
+      - email
+      - full_name
+      - created_at
+
+  Address:
+    description: A shipping or billing address.
+    slots:
+      - id
+      - customer
+      - line1
+      - city
+      - country
+
+  Category:
+    description: A product category (can nest via parent).
+    slots:
+      - id
+      - name
+      - parent
+
+  Product:
+    description: An item for sale.
+    slots:
+      - id
+      - sku
+      - name
+      - price_cents
+      - category
+
+  Order:
+    description: A customer order.
+    slots:
+      - id
+      - customer
+      - ship_to
+      - status
+      - placed_at
+
+  OrderLine:
+    description: A single line item within an order.
+    slots:
+      - id
+      - order
+      - product
+      - quantity
+      - unit_price_cents
+
+enums:
+  order_status:
+    permissible_values:
+      pending:
+      paid:
+      shipped:
+      cancelled:

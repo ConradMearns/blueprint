@@ -1,0 +1,25 @@
+# Attribute-based ecommerce, split across an import (ENTRY FILE).
+# Use:  imports:
+#         - ecommerce.attributes-import.defs
+# and put the classes (written with `attributes:`) in that sibling file below.
+# See README.md.
+
+id: https://example.org/ecommerce-attribute
+name: ecommerce-attribute
+title: E-Commerce Store
+description: Example LinkML schema describing a small online store.
+default_range: string
+
+imports:
+  - ecommerce.attributes-import.defs
+
+prefixes:
+  linkml: https://w3id.org/linkml/
+
+enums:
+  order_status:
+    permissible_values:
+      pending:
+      paid:
+      shipped:
+      cancelled:
