@@ -7,6 +7,7 @@ from blueprint.parse import parse_linkml, parse_linkml_file
 from blueprint.render import (
     COL_GAP,
     TABLE_W,
+    THEMES,
     apply_saved_layout,
     auto_layout,
     num,
@@ -217,6 +218,54 @@ def test_cli_reads_layout_from_another_file(tmp_path):
 
     main([str(schema), "--layout", str(downloaded)])
     assert table_positions((tmp_path / "shop.html").read_text())["A"] == (111, 222)
+
+
+def test_themes_come_from_the_stylesheet():
+    assert THEMES[:3] == ("auto", "light", "dark")
+    assert {"monokai", "dracula", "nord", "solarized"} <= set(THEMES)
+
+
+def test_theme_is_baked_into_the_page():
+    schema = parse_linkml_file(EXAMPLE)
+    auto = render_html(schema)
+    assert '<html lang="en">' in auto
+    assert embedded_data(auto)["theme"] == "auto"
+    monokai = render_html(schema, theme="monokai")
+    assert '<html lang="en" data-theme="monokai">' in monokai
+    assert '<option value="monokai" selected>' in monokai
+    assert embedded_data(monokai)["theme"] == "monokai"
+
+
+def test_unknown_theme_is_rejected():
+    schema = parse_linkml_file(EXAMPLE)
+    try:
+        render_html(schema, theme="neon")
+    except ValueError as e:
+        assert "neon" in str(e)
+    else:
+        raise AssertionError("expected ValueError")
+
+
+def test_cli_theme_sticks_until_changed(tmp_path):
+    schema = tmp_path / "db.yaml"
+    schema.write_text(EXAMPLE.read_text())
+    out = tmp_path / "db.html"
+    main([str(schema), "--theme", "monokai"])
+    assert embedded_data(out.read_text())["theme"] == "monokai"
+    main([str(schema)])
+    assert embedded_data(out.read_text())["theme"] == "monokai"
+    main([str(schema), "--theme", "auto"])
+    assert embedded_data(out.read_text())["theme"] == "auto"
+
+
+def test_cli_rejects_unknown_theme(tmp_path, capsys):
+    schema = tmp_path / "db.yaml"
+    schema.write_text(EXAMPLE.read_text())
+    try:
+        main([str(schema), "--theme", "neon"])
+    except SystemExit as e:
+        assert e.code == 2
+    assert "monokai" in capsys.readouterr().err
 
 
 def test_cli_reports_missing_file(tmp_path, capsys):

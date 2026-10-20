@@ -24,7 +24,16 @@ uv run bp mydb.yaml              # writes mydb.html next to the schema
 uv run bp mydb.yaml -o out.html  # choose the output path
 uv run bp mydb.yaml -o -         # write to stdout
 uv run bp mydb.yaml --open       # also open it in a browser
+uv run bp mydb.yaml --theme monokai
 ```
+
+Themes: `auto` (default — light or dark following your OS), `light`, `dark`,
+`monokai`, `dracula`, `nord`, `solarized`. The theme is stored in the page, so
+later runs keep it until you pass another `--theme`. Viewers can switch theme
+from the menu in the top bar; that choice is remembered in their browser for
+that page and is not written into saved files. Themes are the
+`:root[data-theme="…"]` blocks in `src/blueprint/static/themes.css` — add a
+block there to add a theme.
 
 To put `bp` on your PATH: `uv tool install .`
 
@@ -35,9 +44,8 @@ stderr and listed at the top of the page; the affected columns are highlighted.
 
 Drag the background to pan, scroll (or pinch) to zoom, and use the controls in
 the bottom-left to zoom or fit everything in view. Drag tables to rearrange
-them, then click **Save canvas** in the top bar. The ◐ button toggles light/dark
-(it follows your OS setting until you pick one). The page writes
-itself back out with your layout embedded:
+them, then click **Save canvas** in the top bar. The page writes itself back
+out with your layout embedded:
 
 - **Chromium-based browsers** open a save dialog the first time — browsers
   can't start it in the page's own folder, so navigate to `mydb.html` once and

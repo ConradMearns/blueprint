@@ -14,7 +14,7 @@ from pathlib import Path
 import yaml
 
 from .parse import parse_linkml_file
-from .render import read_saved_layout, render_html
+from .render import THEMES, read_saved_layout, read_saved_theme, render_html
 
 
 def output_path(schema_path: Path) -> Path:
@@ -37,6 +37,12 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument(
         "--relayout", action="store_true", help="ignore any saved layout and lay out from scratch"
     )
+    ap.add_argument(
+        "--theme",
+        choices=THEMES,
+        help="colour theme baked into the page (default: the one the output page already has, "
+        "else auto, which follows the OS light/dark setting)",
+    )
     ap.add_argument("--open", action="store_true", help="open the result in a browser")
     args = ap.parse_args(argv)
 
@@ -55,11 +61,13 @@ def main(argv: list[str] | None = None) -> int:
     if saved.get("tables"):
         print(f"keeping canvas layout saved in {layout_from}", file=sys.stderr)
 
+    theme = args.theme or (read_saved_theme(out) if out else None) or "auto"
     html = render_html(
         schema,
         saved_layout=saved,
         source=args.schema.name,
         output_name=out.name if out else None,
+        theme=theme,
     )
     if out is None:
         sys.stdout.write(html)

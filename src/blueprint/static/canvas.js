@@ -283,7 +283,9 @@
     q('viewport').removeAttribute('style');
     q('sizer').setAttribute('style', `width:${num(b.x1 - b.x0 + 2 * G.pad)}px;height:${num(b.y1 - b.y0 + 2 * G.pad)}px`);
     q('world').setAttribute('style', `transform:translate(${num(G.pad - b.x0)}px,${num(G.pad - b.y0)}px)`);
-    doc.removeAttribute('data-theme'); // theme is the viewer's choice, not part of the file
+    // The file keeps the theme bp baked in; switching in the menu is the viewer's own choice.
+    if (bakedTheme === 'auto') doc.removeAttribute('data-theme');
+    else doc.setAttribute('data-theme', bakedTheme);
     q('actions').hidden = true;
     q('controls').hidden = true;
     q('save-state').className = 'save-state';
@@ -385,16 +387,19 @@
   }
 
   // --- theme --------------------------------------------------------------------------
-  // Follows the OS until toggled; the choice is remembered per browser.
-  function toggleTheme() {
+  // `bp --theme` bakes one in; picking another here is remembered for this page (and
+  // forgotten when bp bakes in a different one). The head script applies it on load.
+  const bakedTheme = data.theme || 'auto';
+  const themeKey = `bp-theme:${location.pathname}:${bakedTheme}`;
+  function setTheme(theme) {
     const root = document.documentElement;
-    const systemDark = matchMedia('(prefers-color-scheme: dark)').matches;
-    const dark = (root.dataset.theme ?? (systemDark ? 'dark' : 'light')) === 'dark';
-    root.dataset.theme = dark ? 'light' : 'dark';
+    if (theme === 'auto') delete root.dataset.theme;
+    else root.dataset.theme = theme;
     try {
-      localStorage.setItem('bp-theme', root.dataset.theme);
+      if (theme === bakedTheme) localStorage.removeItem(themeKey);
+      else localStorage.setItem(themeKey, theme);
     } catch {
-      // Storage blocked: the toggle still works for this visit.
+      // Storage blocked: the choice still applies for this visit.
     }
   }
 
@@ -405,7 +410,8 @@
   $('controls').hidden = false;
   $('save').addEventListener('click', save);
   $('reset').addEventListener('click', resetLayout);
-  $('theme').addEventListener('click', toggleTheme);
+  $('theme').value = document.documentElement.dataset.theme || 'auto';
+  $('theme').addEventListener('change', (e) => setTheme(e.target.value));
   $('zoom-in').addEventListener('click', () => zoomCenter(1.2));
   $('zoom-out').addEventListener('click', () => zoomCenter(1 / 1.2));
   $('fit').addEventListener('click', fitView);

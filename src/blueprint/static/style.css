@@ -1,44 +1,4 @@
-/* Palette follows the original Svelte app: slate chrome, Svelte Flow canvas, TableNode cards. */
-:root {
-  --bar-bg: #0f172a; --bar-btn: #1e293b; --bar-btn-hover: #334155; --bar-border: #334155;
-  --bar-text: #e2e8f0; --bar-strong: #f8fafc; --bar-muted: #94a3b8; --bar-dim: #64748b;
-  --canvas-bg: #ffffff; --canvas-dot: #91919a;
-  --edge: #b1b1b7; --edge-hover: #555555; --edge-label: #222222;
-  --card: #ffffff; --card-border: #c7ccd6; --card-rule: #eef1f6; --card-shadow: rgba(15, 23, 42, 0.12);
-  --head-bg: #1e293b; --head-text: #f8fafc; --head-muted: #cbd5e1;
-  --text: #0f172a; --muted: #64748b;
-  --pk-row: #fffbeb; --fk-row: #eff6ff; --pk-dot: #fcd34d; --fk-dot: #93c5fd;
-  --bad: #dc2626; --bad-text: #b91c1c; --bad-row: #fef2f2;
-  --ok: #4ade80; --err: #f87171;
-  --panel: #fefefe; --panel-text: #333333; --panel-rule: #eeeeee; --panel-hover: #f4f4f4;
-  --bar-edge: transparent;
-  color-scheme: light;
-}
-/* Dark palette: slate canvas, cards one step lighter, tinted key rows. */
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --canvas-bg: #020617; --canvas-dot: #334155;
-    --edge: #64748b; --edge-hover: #cbd5e1; --edge-label: #cbd5e1;
-    --card: #0f172a; --card-border: #334155; --card-rule: #1e293b; --card-shadow: rgba(0, 0, 0, 0.5);
-    --head-bg: #1e293b; --head-text: #f8fafc; --head-muted: #94a3b8;
-    --text: #e2e8f0; --muted: #94a3b8;
-    --pk-row: #292211; --fk-row: #0f1d36; --bad-text: #fca5a5; --bad-row: #3b0d0d; --bad: #ef4444;
-    --panel: #0f172a; --panel-text: #e2e8f0; --panel-rule: #1e293b; --panel-hover: #1e293b;
-    --bar-edge: #1e293b;
-    color-scheme: dark;
-  }
-}
-:root[data-theme="dark"] {
-  --canvas-bg: #020617; --canvas-dot: #334155;
-  --edge: #64748b; --edge-hover: #cbd5e1; --edge-label: #cbd5e1;
-  --card: #0f172a; --card-border: #334155; --card-rule: #1e293b; --card-shadow: rgba(0, 0, 0, 0.5);
-  --head-bg: #1e293b; --head-text: #f8fafc; --head-muted: #94a3b8;
-  --text: #e2e8f0; --muted: #94a3b8;
-  --pk-row: #292211; --fk-row: #0f1d36; --bad-text: #fca5a5; --bad-row: #3b0d0d; --bad: #ef4444;
-  --panel: #0f172a; --panel-text: #e2e8f0; --panel-rule: #1e293b; --panel-hover: #1e293b;
-  --bar-edge: #1e293b;
-  color-scheme: dark;
-}
+/* Colour tokens live in themes.css. */
 [hidden] { display: none !important; }
 html, body { margin: 0; height: 100%; }
 body {
@@ -61,7 +21,7 @@ code { font-family: ui-monospace, SFMono-Regular, monospace; }
 .file { color: var(--bar-dim); font-family: ui-monospace, SFMono-Regular, monospace; font-size: 11px; }
 .stat strong, .issues strong { color: var(--bar-strong); }
 .issues { position: relative; }
-.issues summary { cursor: pointer; list-style: none; color: #fecaca; }
+.issues summary { cursor: pointer; list-style: none; color: var(--issues-text); }
 .issues summary::-webkit-details-marker { display: none; }
 .issues strong { color: var(--err); }
 .problems {
@@ -81,9 +41,14 @@ code { font-family: ui-monospace, SFMono-Regular, monospace; }
   border: 1px solid var(--bar-border); background: var(--bar-btn); color: var(--bar-text);
 }
 .actions button:hover { background: var(--bar-btn-hover); }
-.actions button.primary { background: #f8fafc; color: var(--bar-bg); border-color: #f8fafc; font-weight: 600; }
-.actions button.primary:hover { background: #e2e8f0; }
-#theme { width: 28px; padding: 0; align-self: stretch; display: grid; place-items: center; }
+.actions button.primary {
+  background: var(--primary-bg); color: var(--primary-text); border-color: var(--primary-bg); font-weight: 600;
+}
+.actions button.primary:hover { background: var(--primary-hover); border-color: var(--primary-hover); }
+.actions select {
+  font: inherit; padding: 4px 6px; border-radius: 6px; cursor: pointer;
+  border: 1px solid var(--bar-border); background: var(--bar-btn); color: var(--bar-text);
+}
 
 /* --- canvas ----------------------------------------------------------------- */
 .viewport {
@@ -157,7 +122,7 @@ code { font-family: ui-monospace, SFMono-Regular, monospace; }
 .name { font-weight: 500; color: var(--text); overflow: hidden; text-overflow: ellipsis; }
 .row.pk .name { font-weight: 700; }
 .req { color: var(--bad); margin-left: 1px; }
-.type { color: var(--muted); font-family: ui-monospace, SFMono-Regular, monospace; font-size: 11px; }
+.type { color: var(--type); font-family: ui-monospace, SFMono-Regular, monospace; font-size: 11px; }
 
 @media (max-width: 720px) {
   .bar { padding: 8px 16px; gap: 6px 12px; }

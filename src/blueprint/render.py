@@ -196,8 +196,8 @@ def apply_saved_layout(schema: Schema, auto: Layout, saved: dict[str, Any]) -> L
     return Layout(boxes=boxes, waypoints=waypoints)
 
 
-def read_saved_layout(html_path: Path) -> dict[str, Any]:
-    """Pull the canvas layout out of a page previously written by bp (or saved from it)."""
+def read_saved_data(html_path: Path) -> dict[str, Any]:
+    """The embedded data of a page previously written by bp (or saved from it), or {}."""
     try:
         text = html_path.read_text(encoding="utf-8")
     except OSError:
@@ -206,10 +206,22 @@ def read_saved_layout(html_path: Path) -> dict[str, Any]:
     if not m:
         return {}
     try:
-        layout = json.loads(m.group(1)).get("layout")
-    except (ValueError, AttributeError):
+        data = json.loads(m.group(1))
+    except ValueError:
         return {}
+    return data if isinstance(data, dict) else {}
+
+
+def read_saved_layout(html_path: Path) -> dict[str, Any]:
+    """Pull the canvas layout out of a page previously written by bp (or saved from it)."""
+    layout = read_saved_data(html_path).get("layout")
     return layout if isinstance(layout, dict) else {}
+
+
+def read_saved_theme(html_path: Path) -> str | None:
+    """The theme a previous `bp --theme` baked into the page, if it is still one we know."""
+    theme = read_saved_data(html_path).get("theme")
+    return theme if theme in THEMES else None
 
 
 # --- edge routing (mirrored in static/canvas.js) ----------------------------
@@ -338,6 +350,17 @@ def _asset(name: str) -> str:
     return files("blueprint").joinpath("static", name).read_text(encoding="utf-8")
 
 
+# "auto" follows the OS light/dark setting; the rest are the blocks in themes.css.
+THEMES = ("auto", *re.findall(r':root\[data-theme="([\w-]+)"\]', _asset("themes.css")))
+
+
+def _theme_menu(theme: str) -> str:
+    options = "".join(
+        f'<option value="{t}"{" selected" if t == theme else ""}>{t.capitalize()}</option>' for t in THEMES
+    )
+    return f'<select id="theme" title="Theme" aria-label="Theme">{options}</select>'
+
+
 def _bounds(layout: Layout) -> tuple[float, float, float, float]:
     """Extent of everything drawn, in canvas coordinates (positions may be negative)."""
     xs = [b.x for b in layout.boxes.values()] + [b.right + 2 * LOOP for b in layout.boxes.values()]
@@ -354,12 +377,16 @@ def render_html(
     saved_layout: dict[str, Any] | None = None,
     source: str | None = None,
     output_name: str | None = None,
+    theme: str = "auto",
 ) -> str:
     """Render the schema as a complete, self-contained HTML document.
 
     `saved_layout` is the canvas layout read back from a previous render (see
-    `read_saved_layout`); tables it mentions keep their position.
+    `read_saved_layout`); tables it mentions keep their position. `theme` is
+    one of THEMES; viewers can still switch theme in the page.
     """
+    if theme not in THEMES:
+        raise ValueError(f"unknown theme {theme!r} (choose from {', '.join(THEMES)})")
     auto = auto_layout(schema)
     layout = apply_saved_layout(schema, auto, saved_layout or {})
     pinned = layout is not auto
@@ -376,6 +403,7 @@ def render_html(
 
     data = {
         "file": output_name,
+        "theme": theme,
         "geometry": {
             "tableW": TABLE_W,
             "headerH": HEADER_H,
@@ -405,14 +433,15 @@ def render_html(
     description = f' title="{escape(schema.description)}"' if schema.description else ""
 
     return f"""<!doctype html>
-<html lang="en">
+<html lang="en"{"" if theme == "auto" else f' data-theme="{theme}"'}>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{heading}</title>
-<script>try {{ const t = localStorage.getItem("bp-theme"); if (t) document.documentElement.dataset.theme = t; }} catch {{}}</script>
+<script>try {{ const r = document.documentElement, t = localStorage.getItem("bp-theme:" + location.pathname + ":" + (r.dataset.theme || "auto")); if (t === "auto") delete r.dataset.theme; else if (t) r.dataset.theme = t; }} catch {{}}</script>
 <style>
 :root {{ --table-w: {TABLE_W}px; --header-h: {HEADER_H}px; --row-h: {ROW_H}px; }}
+{_asset("themes.css")}
 {_asset("style.css")}</style>
 </head>
 <body>
@@ -425,7 +454,7 @@ def render_html(
 {_issues_html(schema)}
 <span class="save-state" id="save-state"></span>
 <span class="actions" id="actions" hidden>
-<button id="theme" title="Toggle light / dark" aria-label="Toggle light / dark"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.25" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 1.75a6.25 6.25 0 0 1 0 12.5z" fill="currentColor"/></svg></button>
+{_theme_menu(theme)}
 <button id="reset" title="Discard manual positions and use the automatic layout">Reset layout</button>
 <button id="save" class="primary" title="Write this page back out with the current canvas layout">Save canvas</button>
 </span>
