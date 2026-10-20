@@ -8,8 +8,8 @@ static HTML file.
 Point it at a LinkML schema and blueprint draws an entity-relationship diagram —
 one table per class, columns from slots, and edges for the foreign-key
 relationships implied by slots whose range is another class. The output is one
-self-contained `.html` file (inline CSS + SVG, no JavaScript) you can open
-locally, commit, or host anywhere.
+self-contained `.html` file you can open locally, commit, or host anywhere. The
+diagram is plain HTML + SVG; a small inline script adds dragging and saving.
 
 Same idea as [dbml](https://dbml.dbdiagram.io/), except **LinkML is the source
 of truth** — no custom DSL.
@@ -30,12 +30,33 @@ To put `bp` on your PATH: `uv tool install .`
 Schema problems (e.g. a slot whose range is an unknown class) are printed to
 stderr and listed at the top of the page; the affected columns are highlighted.
 
-## Layout
+## Editing the canvas
 
-Tables are laid out automatically in columns by foreign-key depth: a table
-sits to the left of every table it references, so edges flow left to right.
-Edges that skip a column are routed through a reserved lane rather than under
-other tables. There is no layout file — re-run `bp` after editing the schema.
+Drag tables around in the page, then click **Save canvas**. The page writes
+itself back out with your layout embedded — in Chromium-based browsers you
+pick the file once (choose the original `mydb.html` to overwrite it) and later
+saves go straight to it; other browsers download a copy, which you move over
+the original.
+
+The HTML file _is_ the layout store. Re-running `bp mydb.yaml` reads the layout
+saved in `mydb.html` before overwriting it, so editing the schema never undoes
+your canvas:
+
+- tables you placed stay where they are;
+- tables new to the schema are placed below the existing ones;
+- tables removed from the schema simply disappear.
+
+```bash
+bp mydb.yaml --layout ~/Downloads/mydb.html   # take the layout from another copy
+bp mydb.yaml --relayout                       # discard it and lay out from scratch
+```
+
+**Reset layout** in the page does the same as `--relayout` once saved.
+
+Until you save a layout, tables are placed automatically in columns by
+foreign-key depth: a table sits to the left of every table it references, so
+edges flow left to right, and edges that skip a column are routed through a
+reserved lane rather than under other tables.
 
 ## Development
 
@@ -47,7 +68,13 @@ uv run pytest
 | ----------------------- | ------------------------- |
 | Parse LinkML → ER model | `src/blueprint/parse.py`  |
 | Layout + HTML/SVG       | `src/blueprint/render.py` |
+| Page styles             | `src/blueprint/static/style.css` |
+| Drag / save / reset     | `src/blueprint/static/canvas.js` |
 | `bp` command            | `src/blueprint/cli.py`    |
+
+Edge routing exists twice — `edge_path` in `render.py` and `edgePath` in
+`canvas.js` — so edges redrawn while dragging match what `bp` emits; keep them
+in step.
 
 ### LinkML subset supported
 

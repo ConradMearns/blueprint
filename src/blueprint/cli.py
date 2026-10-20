@@ -1,4 +1,8 @@
-"""`bp` -- render a LinkML schema to a static HTML ER diagram."""
+"""`bp` -- render a LinkML schema to an HTML ER diagram.
+
+Re-running bp keeps the canvas layout saved in the existing output page (via
+its "Save canvas" button), so schema edits never undo where you put things.
+"""
 
 from __future__ import annotations
 
@@ -10,7 +14,7 @@ from pathlib import Path
 import yaml
 
 from .parse import parse_linkml_file
-from .render import render_html
+from .render import read_saved_layout, render_html
 
 
 def output_path(schema_path: Path) -> Path:
@@ -19,14 +23,26 @@ def output_path(schema_path: Path) -> Path:
 
 
 def main(argv: list[str] | None = None) -> int:
-    ap = argparse.ArgumentParser(prog="bp", description=__doc__)
+    ap = argparse.ArgumentParser(
+        prog="bp", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     ap.add_argument("schema", type=Path, help="LinkML schema (.yaml)")
     ap.add_argument("-o", "--output", help="output file, or '-' for stdout (default: <schema>.html)")
+    ap.add_argument(
+        "--layout",
+        type=Path,
+        help="take the saved canvas layout from this page instead of the output file "
+        "(e.g. a copy the browser saved to Downloads)",
+    )
+    ap.add_argument(
+        "--relayout", action="store_true", help="ignore any saved layout and lay out from scratch"
+    )
     ap.add_argument("--open", action="store_true", help="open the result in a browser")
     args = ap.parse_args(argv)
 
     try:
         schema = parse_linkml_file(args.schema)
+        source_text = args.schema.read_text(encoding="utf-8")
     except (OSError, yaml.YAMLError) as e:
         print(f"bp: {e}", file=sys.stderr)
         return 1
@@ -34,12 +50,23 @@ def main(argv: list[str] | None = None) -> int:
     for p in schema.problems:
         print(f"{p.level}: {p.class_name}.{p.slot}: {p.message}", file=sys.stderr)
 
-    html = render_html(schema, source=args.schema.name)
-    if args.output == "-":
+    out = None if args.output == "-" else Path(args.output) if args.output else output_path(args.schema)
+    layout_from = args.layout or out
+    saved = {} if args.relayout or layout_from is None else read_saved_layout(layout_from)
+    if saved.get("tables"):
+        print(f"keeping canvas layout saved in {layout_from}", file=sys.stderr)
+
+    html = render_html(
+        schema,
+        saved_layout=saved,
+        source=args.schema.name,
+        source_text=source_text,
+        output_name=out.name if out else None,
+    )
+    if out is None:
         sys.stdout.write(html)
         return 0
 
-    out = Path(args.output) if args.output else output_path(args.schema)
     out.write_text(html, encoding="utf-8")
     print(f"wrote {out}", file=sys.stderr)
     if args.open:

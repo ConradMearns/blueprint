@@ -58,7 +58,12 @@ class TestParse:
 
     def test_detects_foreign_key_when_range_is_a_class(self):
         [fk] = self.schema.foreign_keys
-        assert (fk.from_class, fk.from_slot, fk.to_class, fk.to_slot) == ("Order", "customer", "Customer", "id")
+        assert (fk.from_class, fk.from_slot, fk.to_class, fk.to_slot) == (
+            "Order",
+            "customer",
+            "Customer",
+            "id",
+        )
 
     def test_scalar_ranges_are_not_foreign_keys(self):
         assert slot(cls(self.schema, "Order"), "tags").ref_class is None

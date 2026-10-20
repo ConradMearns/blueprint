@@ -84,6 +84,10 @@ class ForeignKey:
     required: bool
 
     @property
+    def id(self) -> str:
+        return f"{self.from_class}.{self.from_slot}->{self.to_class}"
+
+    @property
     def cardinality(self) -> str:
         if self.multivalued:
             return "1..*"
@@ -196,9 +200,7 @@ def parse_linkml(text: str, resolve_import: ImportResolver | None = None) -> Sch
     for name, raw in raw_classes.items():
         raw = raw if isinstance(raw, dict) else {}
         slots = class_slots(name, set())
-        id_slot = next((s for s in slots if s.identifier), None) or next(
-            (s for s in slots if s.key), None
-        )
+        id_slot = next((s for s in slots if s.identifier), None) or next((s for s in slots if s.key), None)
         classes.append(
             Class(
                 name=name,
