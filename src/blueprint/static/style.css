@@ -10,6 +10,34 @@
   --pk-row: #fffbeb; --fk-row: #eff6ff; --pk-dot: #fcd34d; --fk-dot: #93c5fd;
   --bad: #dc2626; --bad-text: #b91c1c; --bad-row: #fef2f2;
   --ok: #4ade80; --err: #f87171;
+  --panel: #fefefe; --panel-text: #333333; --panel-rule: #eeeeee; --panel-hover: #f4f4f4;
+  --bar-edge: transparent;
+  color-scheme: light;
+}
+/* Dark palette: slate canvas, cards one step lighter, tinted key rows. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --canvas-bg: #020617; --canvas-dot: #334155;
+    --edge: #64748b; --edge-hover: #cbd5e1; --edge-label: #cbd5e1;
+    --card: #0f172a; --card-border: #334155; --card-rule: #1e293b; --card-shadow: rgba(0, 0, 0, 0.5);
+    --head-bg: #1e293b; --head-text: #f8fafc; --head-muted: #94a3b8;
+    --text: #e2e8f0; --muted: #94a3b8;
+    --pk-row: #292211; --fk-row: #0f1d36; --bad-text: #fca5a5; --bad-row: #3b0d0d; --bad: #ef4444;
+    --panel: #0f172a; --panel-text: #e2e8f0; --panel-rule: #1e293b; --panel-hover: #1e293b;
+    --bar-edge: #1e293b;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --canvas-bg: #020617; --canvas-dot: #334155;
+  --edge: #64748b; --edge-hover: #cbd5e1; --edge-label: #cbd5e1;
+  --card: #0f172a; --card-border: #334155; --card-rule: #1e293b; --card-shadow: rgba(0, 0, 0, 0.5);
+  --head-bg: #1e293b; --head-text: #f8fafc; --head-muted: #94a3b8;
+  --text: #e2e8f0; --muted: #94a3b8;
+  --pk-row: #292211; --fk-row: #0f1d36; --bad-text: #fca5a5; --bad-row: #3b0d0d; --bad: #ef4444;
+  --panel: #0f172a; --panel-text: #e2e8f0; --panel-rule: #1e293b; --panel-hover: #1e293b;
+  --bar-edge: #1e293b;
+  color-scheme: dark;
 }
 [hidden] { display: none !important; }
 html, body { margin: 0; height: 100%; }
@@ -23,6 +51,7 @@ code { font-family: ui-monospace, SFMono-Regular, monospace; }
 .bar {
   display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; padding: 8px 16px;
   background: var(--bar-bg); color: var(--bar-text); font-size: 12px; position: relative; z-index: 2;
+  border-bottom: 1px solid var(--bar-edge);
 }
 .brand { font-size: 15px; font-weight: 700; letter-spacing: 0.03em; color: var(--bar-strong); }
 .bar h1 {
@@ -54,6 +83,7 @@ code { font-family: ui-monospace, SFMono-Regular, monospace; }
 .actions button:hover { background: var(--bar-btn-hover); }
 .actions button.primary { background: #f8fafc; color: var(--bar-bg); border-color: #f8fafc; font-weight: 600; }
 .actions button.primary:hover { background: #e2e8f0; }
+#theme { width: 28px; padding: 0; align-self: stretch; display: grid; place-items: center; }
 
 /* --- canvas ----------------------------------------------------------------- */
 .viewport {
@@ -78,7 +108,7 @@ code { font-family: ui-monospace, SFMono-Regular, monospace; }
 }
 .legend {
   position: absolute; top: 15px; right: 15px; display: flex; gap: 12px; font-size: 11px;
-  background: var(--card); border: 1px solid var(--card-border); border-radius: 6px; padding: 6px 10px; color: #334155;
+  background: var(--panel); border: 1px solid var(--card-border); border-radius: 6px; padding: 6px 10px; color: var(--panel-text);
 }
 .legend span { display: flex; align-items: center; gap: 5px; }
 .dot { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
@@ -88,14 +118,15 @@ code { font-family: ui-monospace, SFMono-Regular, monospace; }
 /* Svelte Flow <Controls> */
 .controls {
   position: absolute; left: 15px; bottom: 15px; display: flex; flex-direction: column;
-  background: #fefefe; box-shadow: 0 0 2px 1px rgba(0, 0, 0, 0.08);
+  background: var(--panel); box-shadow: 0 0 2px 1px rgba(0, 0, 0, 0.08); border: 1px solid var(--bar-edge);
 }
 .controls button {
   width: 26px; height: 26px; padding: 0; display: grid; place-items: center; cursor: pointer;
-  border: 0; border-bottom: 1px solid #eee; background: #fefefe; color: #333; font-size: 16px; line-height: 1;
+  border: 0; border-bottom: 1px solid var(--panel-rule); background: var(--panel); color: var(--panel-text);
+  font-size: 16px; line-height: 1;
 }
-.controls button:hover { background: #f4f4f4; }
-#zoom-level { font-size: 9px; color: #555; text-align: center; padding: 4px 0; }
+.controls button:hover { background: var(--panel-hover); }
+#zoom-level { font-size: 9px; color: var(--muted); text-align: center; padding: 4px 0; }
 
 /* --- table cards (TableNode) ------------------------------------------------- */
 .table {

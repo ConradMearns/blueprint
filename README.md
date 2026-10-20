@@ -35,11 +35,17 @@ stderr and listed at the top of the page; the affected columns are highlighted.
 
 Drag the background to pan, scroll (or pinch) to zoom, and use the controls in
 the bottom-left to zoom or fit everything in view. Drag tables to rearrange
-them, then click **Save canvas** in the top bar. The page writes
-itself back out with your layout embedded — in Chromium-based browsers you
-pick the file once (choose the original `mydb.html` to overwrite it) and later
-saves go straight to it; other browsers download a copy, which you move over
-the original.
+them, then click **Save canvas** in the top bar. The ◐ button toggles light/dark
+(it follows your OS setting until you pick one). The page writes
+itself back out with your layout embedded:
+
+- **Chromium-based browsers** open a save dialog the first time — browsers
+  can't start it in the page's own folder, so navigate to `mydb.html` once and
+  overwrite it. The browser then remembers that file for this page, and later
+  saves (even after a restart) write straight back to it, at most asking you to
+  allow editing.
+- **Other browsers** download a copy, which you move over the original or point
+  `bp --layout` at (below).
 
 The HTML file _is_ the layout store. Re-running `bp mydb.yaml` reads the layout
 saved in `mydb.html` before overwriting it, so editing the schema never undoes

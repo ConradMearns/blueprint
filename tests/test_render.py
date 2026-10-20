@@ -168,7 +168,7 @@ def test_html_escapes_schema_text():
     html = render_html(parse_linkml('name: x\nclasses:\n  A:\n    description: "<b>&</script>"\n'))
     assert "<b>&" not in html
     assert "&lt;b&gt;&amp;&lt;/script&gt;" in html
-    assert html.count("</script>") == 2  # data block + canvas script; nothing leaked
+    assert html.count("</script>") == 3  # theme + data block + canvas script; nothing leaked
 
 
 def test_problems_are_listed():

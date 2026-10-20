@@ -18,7 +18,6 @@
 
   let pinned = Object.keys(data.layout.tables || {}).length > 0;
   let dirty = false;
-  let fileHandle = null;
   let view = { x: 0, y: 0, k: 1 };
   let viewTouched = false; // until the user pans/zooms, keep the content fitted on resize
 
@@ -284,6 +283,7 @@
     q('viewport').removeAttribute('style');
     q('sizer').setAttribute('style', `width:${num(b.x1 - b.x0 + 2 * G.pad)}px;height:${num(b.y1 - b.y0 + 2 * G.pad)}px`);
     q('world').setAttribute('style', `transform:translate(${num(G.pad - b.x0)}px,${num(G.pad - b.y0)}px)`);
+    doc.removeAttribute('data-theme'); // theme is the viewer's choice, not part of the file
     q('actions').hidden = true;
     q('controls').hidden = true;
     q('save-state').className = 'save-state';
@@ -292,19 +292,83 @@
     return '<!doctype html>\n' + doc.outerHTML + '\n';
   }
 
+  // Browsers won't open a save dialog at a path (so not at this page's folder),
+  // but Chromium can keep the file handle in IndexedDB: after the first save,
+  // later saves of this page write straight back to the same file.
+  const handles = {
+    key: location.href.split('#')[0],
+    open() {
+      return new Promise((resolve, reject) => {
+        const req = indexedDB.open('blueprint', 1);
+        req.onupgradeneeded = () => req.result.createObjectStore('handles');
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+    },
+    async get() {
+      try {
+        const db = await this.open();
+        return await new Promise((resolve) => {
+          const req = db.transaction('handles').objectStore('handles').get(this.key);
+          req.onsuccess = () => resolve(req.result ?? null);
+          req.onerror = () => resolve(null);
+        });
+      } catch {
+        return null;
+      }
+    },
+    async set(handle) {
+      try {
+        const db = await this.open();
+        db.transaction('handles', 'readwrite').objectStore('handles').put(handle, this.key);
+      } catch {
+        // Not fatal: the next save just asks for the file again.
+      }
+    }
+  };
+  // Some browsers never answer IndexedDB requests on file:// pages; don't let Save hang on that.
+  const lookup = Promise.race([handles.get(), new Promise((resolve) => setTimeout(resolve, 1000, null))]);
+  let fileHandle = window.showSaveFilePicker ? lookup : Promise.resolve(null);
+
+  /** Remember the picker's folder per directory, so sibling diagrams open there too. */
+  function pickerId() {
+    const dir = decodeURIComponent(location.pathname).replace(/[^/]*$/, '');
+    let h = 0;
+    for (const c of dir) h = (Math.imul(h, 31) + c.codePointAt(0)) | 0;
+    return `bp-${(h >>> 0).toString(36)}`;
+  }
+
+  async function writeTo(handle, html) {
+    if ((await handle.requestPermission({ mode: 'readwrite' })) !== 'granted') return false;
+    const w = await handle.createWritable();
+    await w.write(html);
+    await w.close();
+    return true;
+  }
+
   async function save() {
     const html = snapshot();
     const name = data.file || 'blueprint.html';
     try {
       if (window.showSaveFilePicker) {
-        fileHandle ??= await window.showSaveFilePicker({
-          suggestedName: name,
-          types: [{ description: 'HTML', accept: { 'text/html': ['.html'] } }]
-        });
-        const w = await fileHandle.createWritable();
-        await w.write(html);
-        await w.close();
-        setState('saved', `saved ✓ ${fileHandle.name}`);
+        let handle = await fileHandle;
+        let written = false;
+        try {
+          written = !!handle && (await writeTo(handle, html));
+        } catch (err) {
+          if (err.name !== 'NotFoundError' && err.name !== 'NotAllowedError') throw err;
+        }
+        if (!written) {
+          handle = await window.showSaveFilePicker({
+            suggestedName: name,
+            ...(handle ? { startIn: handle } : { id: pickerId() }),
+            types: [{ description: 'HTML', accept: { 'text/html': ['.html'] } }]
+          });
+          await writeTo(handle, html);
+          handles.set(handle);
+        }
+        fileHandle = Promise.resolve(handle);
+        setState('saved', `saved ✓ ${handle.name}`);
       } else {
         const a = document.createElement('a');
         a.href = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
@@ -320,6 +384,20 @@
     }
   }
 
+  // --- theme --------------------------------------------------------------------------
+  // Follows the OS until toggled; the choice is remembered per browser.
+  function toggleTheme() {
+    const root = document.documentElement;
+    const systemDark = matchMedia('(prefers-color-scheme: dark)').matches;
+    const dark = (root.dataset.theme ?? (systemDark ? 'dark' : 'light')) === 'dark';
+    root.dataset.theme = dark ? 'light' : 'dark';
+    try {
+      localStorage.setItem('bp-theme', root.dataset.theme);
+    } catch {
+      // Storage blocked: the toggle still works for this visit.
+    }
+  }
+
   // --- wire up ---------------------------------------------------------------------
   sizer.removeAttribute('style');
   viewport.classList.add('live');
@@ -327,6 +405,7 @@
   $('controls').hidden = false;
   $('save').addEventListener('click', save);
   $('reset').addEventListener('click', resetLayout);
+  $('theme').addEventListener('click', toggleTheme);
   $('zoom-in').addEventListener('click', () => zoomCenter(1.2));
   $('zoom-out').addEventListener('click', () => zoomCenter(1 / 1.2));
   $('fit').addEventListener('click', fitView);

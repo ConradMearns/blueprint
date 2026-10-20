@@ -410,6 +410,7 @@ def render_html(
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{heading}</title>
+<script>try {{ const t = localStorage.getItem("bp-theme"); if (t) document.documentElement.dataset.theme = t; }} catch {{}}</script>
 <style>
 :root {{ --table-w: {TABLE_W}px; --header-h: {HEADER_H}px; --row-h: {ROW_H}px; }}
 {_asset("style.css")}</style>
@@ -424,6 +425,7 @@ def render_html(
 {_issues_html(schema)}
 <span class="save-state" id="save-state"></span>
 <span class="actions" id="actions" hidden>
+<button id="theme" title="Toggle light / dark" aria-label="Toggle light / dark"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.25" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 1.75a6.25 6.25 0 0 1 0 12.5z" fill="currentColor"/></svg></button>
 <button id="reset" title="Discard manual positions and use the automatic layout">Reset layout</button>
 <button id="save" class="primary" title="Write this page back out with the current canvas layout">Save canvas</button>
 </span>
