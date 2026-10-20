@@ -3,9 +3,9 @@ import re
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-from blueprint.cli import main, output_path
-from blueprint.parse import parse_linkml, parse_linkml_file
-from blueprint.render import (
+from linkml_herd.cli import main, output_path
+from linkml_herd.parse import parse_linkml, parse_linkml_file
+from linkml_herd.render import (
     COL_GAP,
     TABLE_W,
     THEMES,
@@ -22,7 +22,7 @@ EXAMPLE = Path(__file__).parent.parent / "examples" / "ecommerce.linkml.yaml"
 
 
 def embedded_data(html: str) -> dict:
-    m = re.search(r'<script type="application/json" id="bp-data">(.*?)</script>', html, re.DOTALL)
+    m = re.search(r'<script type="application/json" id="herd-data">(.*?)</script>', html, re.DOTALL)
     assert m
     return json.loads(m.group(1))
 
@@ -35,7 +35,7 @@ def save_canvas(html_path: Path, tables: dict, edges: dict | None = None) -> Non
     payload = json.dumps(data).replace("</", "<\\/")
     html_path.write_text(
         re.sub(
-            r'(id="bp-data">).*?(</script>)',
+            r'(id="herd-data">).*?(</script>)',
             lambda m: m.group(1) + payload + m.group(2),
             html,
             flags=re.DOTALL,
@@ -312,7 +312,7 @@ def test_svg_escapes_schema_text():
 
 def test_page_carries_svg_template_for_export():
     html = render_html(parse_linkml_file(EXAMPLE))
-    m = re.search(r'<template id="bp-svg">(<svg .*?</svg>)</template>', html, re.DOTALL)
+    m = re.search(r'<template id="herd-svg">(<svg .*?</svg>)</template>', html, re.DOTALL)
     assert m and "var(--card)" in m.group(1)
     assert 'id="export"' in html
 
@@ -338,6 +338,13 @@ def test_cli_svg_uses_neighbour_page_layout_and_theme(tmp_path):
     assert 'fill="#fdf6e3"' in out
 
 
+def test_layout_is_read_from_pages_written_before_the_rename(tmp_path):
+    page = tmp_path / "old.html"
+    layout = {"tables": {"Customer": {"x": 5, "y": 6}}, "edges": {}}
+    page.write_text(f'<script type="application/json" id="bp-data">{json.dumps({"layout": layout})}</script>')
+    assert read_saved_layout(page) == layout
+
+
 def test_cli_reports_missing_file(tmp_path, capsys):
     assert main([str(tmp_path / "missing.yaml")]) == 1
-    assert "bp:" in capsys.readouterr().err
+    assert "linkml-herd:" in capsys.readouterr().err

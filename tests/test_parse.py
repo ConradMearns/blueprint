@@ -1,4 +1,4 @@
-from blueprint.parse import parse_linkml
+from linkml_herd.parse import parse_linkml
 
 SCHEMA = """
 name: shop

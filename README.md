@@ -1,11 +1,12 @@
-# blueprint
+# linkml-herd
 
-Render a **[LinkML](https://linkml.io/) schema as an ER diagram** in a single,
-static HTML file.
+**HTML + ERD = HERD.** Render a **[LinkML](https://linkml.io/) schema as an ER
+diagram** in a single, static HTML file you can rearrange and save — or as an
+SVG image.
 
-![blueprint rendering a LinkML schema as an ER diagram](docs/screenshot.png)
+![linkml-herd rendering a LinkML schema as an ER diagram](docs/herd.png)
 
-Point it at a LinkML schema and blueprint draws an entity-relationship diagram —
+Point it at a LinkML schema and linkml-herd draws an entity-relationship diagram —
 one table per class, columns from slots, and edges for the foreign-key
 relationships implied by slots whose range is another class. The output is one
 self-contained `.html` file you can open locally, commit, or host anywhere. The
@@ -15,17 +16,30 @@ canvas you can pan, zoom and rearrange.
 Same idea as [dbml](https://dbml.dbdiagram.io/), except **LinkML is the source
 of truth** — no custom DSL.
 
-## Usage
+linkml-herd is an independent project, not part of or endorsed by the LinkML
+project. (LinkML's own `gen-erdiagram` writes Mermaid ER diagrams; linkml-herd
+gives you an editable canvas whose layout survives schema changes.)
 
-Requires Python 3.11+ and [uv](https://docs.astral.sh/uv/).
+## Install
+
+Requires Python 3.11+.
 
 ```bash
-uv run bp mydb.yaml              # writes mydb.html next to the schema
-uv run bp mydb.yaml -o out.html  # choose the output path
-uv run bp mydb.yaml -o -         # write to stdout
-uv run bp mydb.yaml --open       # also open it in a browser
-uv run bp mydb.yaml --theme nord   # pick a colour theme
-uv run bp mydb.yaml --svg          # write mydb.svg instead (also: -o diagram.svg)
+uv tool install linkml-herd   # or: pipx install linkml-herd
+```
+
+From a checkout, `uv tool install .` does the same, or prefix the commands
+below with `uv run`.
+
+## Usage
+
+```bash
+linkml-herd mydb.yaml               # writes mydb.html next to the schema
+linkml-herd mydb.yaml -o out.html   # choose the output path
+linkml-herd mydb.yaml -o -          # write to stdout
+linkml-herd mydb.yaml --open        # also open it in a browser
+linkml-herd mydb.yaml --theme nord  # pick a colour theme
+linkml-herd mydb.yaml --svg         # write mydb.svg instead (also: -o diagram.svg)
 ```
 
 `--svg` draws the same diagram as a standalone SVG image (plain shapes and
@@ -39,10 +53,8 @@ Themes: `monokai` (default), `auto` (light or dark following your OS),
 later runs keep it until you pass another `--theme`. Viewers can switch theme
 from the menu in the top bar; that choice is remembered in their browser for
 that page and is not written into saved files. Themes are the
-`:root[data-theme="…"]` blocks in `src/blueprint/static/themes.css` — add a
+`:root[data-theme="…"]` blocks in `src/linkml_herd/static/themes.css` — add a
 block there to add a theme.
-
-To put `bp` on your PATH: `uv tool install .`
 
 Schema problems (e.g. a slot whose range is an unknown class) are printed to
 stderr and listed at the top of the page; the affected columns are highlighted.
@@ -60,9 +72,9 @@ out with your layout embedded:
   saves (even after a restart) write straight back to it, at most asking you to
   allow editing.
 - **Other browsers** download a copy, which you move over the original or point
-  `bp --layout` at (below).
+  `linkml-herd --layout` at (below).
 
-The HTML file _is_ the layout store. Re-running `bp mydb.yaml` reads the layout
+The HTML file _is_ the layout store. Re-running `linkml-herd mydb.yaml` reads the layout
 saved in `mydb.html` before overwriting it, so editing the schema never undoes
 your canvas:
 
@@ -71,8 +83,8 @@ your canvas:
 - tables removed from the schema simply disappear.
 
 ```bash
-bp mydb.yaml --layout ~/Downloads/mydb.html   # take the layout from another copy
-bp mydb.yaml --relayout                       # discard it and lay out from scratch
+linkml-herd mydb.yaml --layout ~/Downloads/mydb.html   # take the layout from another copy
+linkml-herd mydb.yaml --relayout                       # discard it and lay out from scratch
 ```
 
 **Reset layout** in the page does the same as `--relayout` once saved.
@@ -88,17 +100,17 @@ reserved lane rather than under other tables.
 uv run pytest
 ```
 
-| Concern                 | Module                    |
-| ----------------------- | ------------------------- |
-| Parse LinkML → ER model | `src/blueprint/parse.py`  |
-| Layout + HTML/SVG       | `src/blueprint/render.py` |
-| Page styles             | `src/blueprint/static/style.css` |
-| Pan / zoom / drag / save | `src/blueprint/static/canvas.js` |
-| `bp` command            | `src/blueprint/cli.py`    |
+| Concern                  | Module                              |
+| ------------------------ | ----------------------------------- |
+| Parse LinkML → ER model  | `src/linkml_herd/parse.py`          |
+| Layout + HTML/SVG        | `src/linkml_herd/render.py`         |
+| Page styles / themes     | `src/linkml_herd/static/style.css`, `themes.css` |
+| Pan / zoom / drag / save | `src/linkml_herd/static/canvas.js`  |
+| `linkml-herd` command    | `src/linkml_herd/cli.py`            |
 
 Edge routing exists twice — `edge_path` in `render.py` and `edgePath` in
-`canvas.js` — so edges redrawn while dragging match what `bp` emits; keep them
-in step.
+`canvas.js` — so edges redrawn while dragging match what `linkml-herd` emits;
+keep them in step.
 
 ### LinkML subset supported
 

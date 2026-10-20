@@ -1,9 +1,9 @@
 // Infinite canvas: pan, zoom, drag tables, and save the page back out with the layout embedded.
-// `edgePath` and `num` mirror render.py so redrawn edges match bp's output.
+// `edgePath` and `num` mirror render.py so redrawn edges match linkml-herd's output.
 (() => {
   'use strict';
   const $ = (id) => document.getElementById(id);
-  const dataEl = $('bp-data');
+  const dataEl = $('herd-data');
   const data = JSON.parse(dataEl.textContent);
   const G = data.geometry;
   const viewport = $('viewport');
@@ -272,7 +272,7 @@
     return layout;
   }
 
-  /** The page as bp would write it for the current layout (scrollable, no live view state). */
+  /** The page as linkml-herd would write it for the current layout (scrollable, no live view state). */
   function snapshot() {
     data.layout = currentLayout();
     dataEl.textContent = JSON.stringify(data).replaceAll('</', '<\\/');
@@ -283,7 +283,7 @@
     q('viewport').removeAttribute('style');
     q('sizer').setAttribute('style', `width:${num(b.x1 - b.x0 + 2 * G.pad)}px;height:${num(b.y1 - b.y0 + 2 * G.pad)}px`);
     q('world').setAttribute('style', `transform:translate(${num(G.pad - b.x0)}px,${num(G.pad - b.y0)}px)`);
-    // The file keeps the theme bp baked in; switching in the menu is the viewer's own choice.
+    // The file keeps the theme linkml-herd baked in; switching in the menu is the viewer's own choice.
     if (bakedTheme === 'auto') doc.removeAttribute('data-theme');
     else doc.setAttribute('data-theme', bakedTheme);
     q('actions').hidden = true;
@@ -301,7 +301,7 @@
     key: location.href.split('#')[0],
     open() {
       return new Promise((resolve, reject) => {
-        const req = indexedDB.open('blueprint', 1);
+        const req = indexedDB.open('linkml-herd', 1);
         req.onupgradeneeded = () => req.result.createObjectStore('handles');
         req.onsuccess = () => resolve(req.result);
         req.onerror = () => reject(req.error);
@@ -337,7 +337,7 @@
     const dir = decodeURIComponent(location.pathname).replace(/[^/]*$/, '');
     let h = 0;
     for (const c of dir) h = (Math.imul(h, 31) + c.codePointAt(0)) | 0;
-    return `bp-${(h >>> 0).toString(36)}`;
+    return `herd-${(h >>> 0).toString(36)}`;
   }
 
   async function writeTo(handle, html) {
@@ -358,7 +358,7 @@
 
   async function save() {
     const html = snapshot();
-    const name = data.file || 'blueprint.html';
+    const name = data.file || 'diagram.html';
     try {
       if (window.showSaveFilePicker) {
         let handle = await fileHandle;
@@ -391,10 +391,10 @@
   }
 
   // --- SVG export -------------------------------------------------------------------
-  // bp draws the diagram as a plain SVG image into <template id="bp-svg">, coloured with
+  // linkml-herd draws the diagram as a plain SVG image into <template id="herd-svg">, coloured with
   // var(--token). Export moves it to the current layout and fills in the theme on screen.
   function svgSnapshot() {
-    const img = $('bp-svg').content.firstElementChild.cloneNode(true);
+    const img = $('herd-svg').content.firstElementChild.cloneNode(true);
     const b = contentBounds();
     const [x, y, w, h] = [b.x0 - G.pad, b.y0 - G.pad, b.x1 - b.x0 + 2 * G.pad, b.y1 - b.y0 + 2 * G.pad].map(num);
     img.setAttribute('viewBox', `${x} ${y} ${w} ${h}`);
@@ -420,7 +420,7 @@
 
   async function exportSvg() {
     const image = svgSnapshot();
-    const name = (data.file || 'blueprint.html').replace(/\.html?$/i, '') + '.svg';
+    const name = (data.file || 'diagram.html').replace(/\.html?$/i, '') + '.svg';
     try {
       if (window.showSaveFilePicker) {
         const handle = await window.showSaveFilePicker({
@@ -441,10 +441,10 @@
   }
 
   // --- theme --------------------------------------------------------------------------
-  // `bp --theme` bakes one in; picking another here is remembered for this page (and
-  // forgotten when bp bakes in a different one). The head script applies it on load.
+  // `linkml-herd --theme` bakes one in; picking another here is remembered for this page (and
+  // forgotten when linkml-herd bakes in a different one). The head script applies it on load.
   const bakedTheme = data.theme || 'auto';
-  const themeKey = `bp-theme:${location.pathname}:${bakedTheme}`;
+  const themeKey = `herd-theme:${location.pathname}:${bakedTheme}`;
   function setTheme(theme) {
     const root = document.documentElement;
     if (theme === 'auto') delete root.dataset.theme;
