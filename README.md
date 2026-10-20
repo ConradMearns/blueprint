@@ -1,106 +1,117 @@
 # blueprint
 
-An infinite-canvas **ER diagram editor driven by [LinkML](https://linkml.io/)**.
+Render a **[LinkML](https://linkml.io/) schema as an ER diagram** in a single,
+static HTML file.
 
 ![blueprint rendering a LinkML schema as an ER diagram](docs/screenshot.png)
 
-Point it at a LinkML schema and blueprint paints an entity-relationship diagram —
+Point it at a LinkML schema and blueprint draws an entity-relationship diagram —
 one table per class, columns from slots, and edges for the foreign-key
-relationships implied by slots whose range is another class. Tables can be
-dragged around freely on an infinite canvas powered by
-[Svelte Flow](https://svelteflow.dev/).
+relationships implied by slots whose range is another class. The output is one
+self-contained `.html` file you can open locally, commit, or host anywhere. The
+diagram is plain HTML + SVG; a small inline script turns it into an infinite
+canvas you can pan, zoom and rearrange.
 
-This is the same idea as [dbml](https://dbml.dbdiagram.io/) and its canvas, with
-two deliberate differences:
+Same idea as [dbml](https://dbml.dbdiagram.io/), except **LinkML is the source
+of truth** — no custom DSL.
 
-- **LinkML is the source of truth** for _what_ to draw — no custom DSL.
-- A **separate layout file** records _where_ to draw. The schema stays clean and
-  authoritative while users rearrange the canvas; positions never leak back into
-  the model.
+## Usage
 
-## Stack
-
-- [SvelteKit](https://svelte.dev/docs/kit) + Svelte 5 (runes), TypeScript
-- [Bun](https://bun.com/) for tooling and package management
-- [`@xyflow/svelte`](https://svelteflow.dev/) (Svelte Flow) for the canvas
-- [`yaml`](https://www.npmjs.com/package/yaml) to parse LinkML
-
-## CLI (`bp`)
-
-The primary way to use blueprint is the `bp` command — point it at a LinkML file
-and it opens that file in the canvas, no import/export needed:
+Requires Python 3.11+ and [uv](https://docs.astral.sh/uv/).
 
 ```bash
-bun install
-bun link            # makes `bp` available on your PATH
-bp mydb.yaml        # builds on first run, serves, opens the browser
+uv run bp mydb.yaml              # writes mydb.html next to the schema
+uv run bp mydb.yaml -o out.html  # choose the output path
+uv run bp mydb.yaml -o -         # write to stdout
+uv run bp mydb.yaml --open       # also open it in a browser
+uv run bp mydb.yaml --theme nord   # pick a colour theme
+uv run bp mydb.yaml --svg          # write mydb.svg instead (also: -o diagram.svg)
 ```
 
-Or without linking: `bun run bp mydb.yaml`.
+`--svg` draws the same diagram as a standalone SVG image (plain shapes and
+text, no scripts or CSS) for docs and slides. It uses the canvas layout and
+theme saved in `mydb.html` when that page exists, without changing it; `--layout`,
+`--relayout` and `--theme` work as for the page. The page's **Export SVG** button
+does the same from the browser, with the current layout and the theme on screen.
 
-In this **file-backed mode**:
+Themes: `monokai` (default), `auto` (light or dark following your OS),
+`light`, `dark`, `dracula`, `nord`, `solarized`. The theme is stored in the page, so
+later runs keep it until you pass another `--theme`. Viewers can switch theme
+from the menu in the top bar; that choice is remembered in their browser for
+that page and is not written into saved files. Themes are the
+`:root[data-theme="…"]` blocks in `src/blueprint/static/themes.css` — add a
+block there to add a theme.
 
-- the schema is read from `mydb.yaml`;
-- table positions autosave to a **neighbor file `mydb.bp.json`** as you drag;
-- edits in the sidebar autosave back to `mydb.yaml` (when they parse cleanly);
-- the server **watches both files** and pushes external changes to the canvas
-  live (over SSE), so editing `mydb.yaml` in another editor updates the diagram
-  — the app's own saves are suppressed so they don't echo back.
+To put `bp` on your PATH: `uv tool install .`
 
-The schema stays the source of truth for _what_ to draw; `mydb.bp.json` only
-holds _where_. Commit the schema, optionally commit the layout, ignore neither.
+Schema problems (e.g. a slot whose range is an unknown class) are printed to
+stderr and listed at the top of the page; the affected columns are highlighted.
 
-```
-bp <schema.yaml> [--port 4321] [--no-open] [--rebuild]
-```
+## Editing the canvas
 
-## Browser mode (no CLI)
+Drag the background to pan, scroll (or pinch) to zoom, and use the controls in
+the bottom-left to zoom or fit everything in view. Drag tables to rearrange
+them, then click **Save canvas** in the top bar. The page writes itself back
+out with your layout embedded:
+
+- **Chromium-based browsers** open a save dialog the first time — browsers
+  can't start it in the page's own folder, so navigate to `mydb.html` once and
+  overwrite it. The browser then remembers that file for this page, and later
+  saves (even after a restart) write straight back to it, at most asking you to
+  allow editing.
+- **Other browsers** download a copy, which you move over the original or point
+  `bp --layout` at (below).
+
+The HTML file _is_ the layout store. Re-running `bp mydb.yaml` reads the layout
+saved in `mydb.html` before overwriting it, so editing the schema never undoes
+your canvas:
+
+- tables you placed stay where they are;
+- tables new to the schema are placed below the existing ones;
+- tables removed from the schema simply disappear.
 
 ```bash
-bun run dev        # http://localhost:5173
+bp mydb.yaml --layout ~/Downloads/mydb.html   # take the layout from another copy
+bp mydb.yaml --relayout                       # discard it and lay out from scratch
 ```
 
-Run without `bp` and the app falls back to a bundled example, `localStorage` for
-layout, and load/export buttons — so it still works as a pure browser app or
-static deployment.
+**Reset layout** in the page does the same as `--relayout` once saved.
 
-## Quality gates
+Until you save a layout, tables are placed automatically in columns by
+foreign-key depth: a table sits to the left of every table it references, so
+edges flow left to right, and edges that skip a column are routed through a
+reserved lane rather than under other tables.
+
+## Development
 
 ```bash
-bun test           # unit tests (Vitest)
-bun run check      # type-check (svelte-check)
-bun run lint       # prettier + eslint
-bun run build      # production build
+uv run pytest
 ```
 
-## How it works
+| Concern                 | Module                    |
+| ----------------------- | ------------------------- |
+| Parse LinkML → ER model | `src/blueprint/parse.py`  |
+| Layout + HTML/SVG       | `src/blueprint/render.py` |
+| Page styles             | `src/blueprint/static/style.css` |
+| Pan / zoom / drag / save | `src/blueprint/static/canvas.js` |
+| `bp` command            | `src/blueprint/cli.py`    |
 
-| Concern                       | Module                                             |
-| ----------------------------- | -------------------------------------------------- |
-| Parse LinkML → ER model       | `src/lib/linkml/parse.ts`                          |
-| ER model types                | `src/lib/linkml/types.ts`                          |
-| Model + layout → flow graph   | `src/lib/linkml/toFlow.ts`                         |
-| Layout persistence (browser)  | `src/lib/layout/store.ts`                          |
-| Disk read/write (file-backed) | `src/lib/server/store.ts`                          |
-| Neighbor path (`.bp.json`)    | `src/lib/server/paths.ts`                          |
-| Schema/layout HTTP endpoints  | `src/routes/api/{schema,layout}/`                  |
-| File watcher → SSE            | `src/lib/server/watch.ts`, `src/routes/api/watch/` |
-| `bp` CLI launcher             | `bin/bp.js`                                        |
-| Table node rendering          | `src/lib/components/TableNode.svelte`              |
-| Canvas + editor               | `src/routes/+page.svelte`                          |
+Edge routing exists twice — `edge_path` in `render.py` and `edgePath` in
+`canvas.js` — so edges redrawn while dragging match what `bp` emits; keep them
+in step.
 
 ### LinkML subset supported
 
 `classes` with inline `attributes` and/or referenced top-level `slots`,
 reusable `slots`, `slot_usage` overrides, `is_a` / `mixins` inheritance, and
-`imports` (slots/classes/types/enums pulled from sibling files, resolved on disk
-by `bp`). Attributes and slots are interchangeable. A slot is treated as a
-**foreign key** when its `range` matches another class name; `identifier: true`
-(or `key: true`) marks the **primary key**.
+`imports` (slots/classes/types/enums pulled from sibling files, resolved
+relative to the importing file). Attributes and slots are interchangeable. A
+slot is treated as a **foreign key** when its `range` matches another class
+name; `identifier: true` (or `key: true`) marks the **primary key**.
 
-Equivalence across these representations is locked down by
-`src/lib/linkml/fixtures/` — every variant of the ecommerce schema must produce
-the same canvas (see that folder's README).
+Equivalence across these representations is locked down by `tests/fixtures/` —
+every variant of the ecommerce schema must produce the same diagram (see that
+folder's README).
 
 ## Issue tracking
 

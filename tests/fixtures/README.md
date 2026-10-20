@@ -7,22 +7,19 @@ them must build the _same canvas_ as the attribute-based ecommerce schema.
 ## The baseline
 
 `ecommerce.canvas.json` is the **known-good canvas**, generated from the
-attribute-based reference schema at `src/lib/examples/ecommerce.linkml.yaml`.
-It's an order-independent fingerprint (see `../fingerprint.ts`): the tables and
-their columns, the foreign-key edges, and any validation problems — i.e.
-everything the canvas paints, minus positions.
+attribute-based reference schema at `examples/ecommerce.linkml.yaml`.
+It's an order-independent fingerprint (see `../test_equivalence.py`): the tables
+and their columns, the foreign-key edges, and any validation problems — i.e.
+everything the diagram paints, minus positions.
 
-Regenerate it only if the reference schema itself changes:
+Regenerate it only if the reference schema itself changes (dump
+`fingerprint(parse_linkml_file("examples/ecommerce.linkml.yaml"))` from
+`../test_equivalence.py` as JSON).
 
-```bash
-bun .gen-fixture.mjs   # (see git history for the one-off generator)
-```
+## The variants
 
-## The variants you add
-
-Create each file below in this directory. Its test in
-`../canvas-equivalence.spec.ts` is **skipped until the file exists**, then
-asserts `canvasFingerprint(parse(file)) === ecommerce.canvas.json`. Because the
+Each file below lives in this directory. Its test in
+`../test_equivalence.py` asserts `fingerprint(parse(file)) == ecommerce.canvas.json`. Because the
 fingerprint is sorted by name, declaration order doesn't matter — only that the
 tables, columns (name/type/pk/fk/required/multivalued), and FK edges match.
 
@@ -55,5 +52,5 @@ tables, columns (name/type/pk/fk/required/multivalued), and FK edges match.
 Once the files are in place, run:
 
 ```bash
-bun test
+uv run pytest
 ```

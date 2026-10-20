@@ -1,0 +1,131 @@
+/* Colour tokens live in themes.css. */
+[hidden] { display: none !important; }
+html, body { margin: 0; height: 100%; }
+body {
+  display: flex; flex-direction: column; background: var(--canvas-bg); color: var(--text);
+  font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+}
+code { font-family: ui-monospace, SFMono-Regular, monospace; }
+
+/* --- top bar -------------------------------------------------------------- */
+.bar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; padding: 8px 16px;
+  background: var(--bar-bg); color: var(--bar-text); font-size: 12px; position: relative; z-index: 2;
+  border-bottom: 1px solid var(--bar-edge);
+}
+.brand { font-size: 15px; font-weight: 700; letter-spacing: 0.03em; color: var(--bar-strong); }
+.bar h1 {
+  margin: 0; font-size: 13px; font-weight: 600; color: var(--bar-strong);
+  padding-left: 16px; border-left: 1px solid var(--bar-border);
+}
+.file { color: var(--bar-dim); font-family: ui-monospace, SFMono-Regular, monospace; font-size: 11px; }
+.stat strong, .issues strong { color: var(--bar-strong); }
+.issues { position: relative; }
+.issues summary { cursor: pointer; list-style: none; color: var(--issues-text); }
+.issues summary::-webkit-details-marker { display: none; }
+.issues strong { color: var(--err); }
+.problems {
+  position: absolute; top: calc(100% + 10px); left: 0; width: max-content; max-width: min(480px, 90vw);
+  list-style: none; margin: 0; padding: 8px 10px; display: flex; flex-direction: column; gap: 4px;
+  max-height: 50vh; overflow-y: auto; font-size: 11px; line-height: 1.4;
+  background: #450a0a; color: #fecaca; border: 1px solid #7f1d1d; border-radius: 6px;
+  box-shadow: 0 6px 18px rgba(2, 6, 23, 0.35);
+}
+.problems a { color: #fca5a5; }
+.save-state { color: var(--bar-muted); margin-left: auto; }
+.save-state.saved { color: var(--ok); }
+.save-state.error { color: var(--err); }
+.actions { display: flex; gap: 6px; }
+.actions button {
+  font: inherit; padding: 5px 10px; border-radius: 6px; cursor: pointer;
+  border: 1px solid var(--bar-border); background: var(--bar-btn); color: var(--bar-text);
+}
+.actions button:hover { background: var(--bar-btn-hover); }
+.actions button.primary {
+  background: var(--primary-bg); color: var(--primary-text); border-color: var(--primary-bg); font-weight: 600;
+}
+.actions button.primary:hover { background: var(--primary-hover); border-color: var(--primary-hover); }
+.actions select {
+  font: inherit; padding: 4px 6px; border-radius: 6px; cursor: pointer;
+  border: 1px solid var(--bar-border); background: var(--bar-btn); color: var(--bar-text);
+}
+
+/* --- canvas ----------------------------------------------------------------- */
+.viewport {
+  flex: 1; min-height: 0; position: relative; overflow: auto;
+  background-color: var(--canvas-bg);
+  background-image: radial-gradient(circle, var(--canvas-dot) 0.8px, transparent 1px);
+  background-size: 20px 20px; background-attachment: local;
+}
+.sizer { position: relative; }
+.world { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+/* With the script running: an infinite, pannable, zoomable canvas. */
+.viewport.live { overflow: hidden; cursor: grab; touch-action: none; background-attachment: scroll; }
+.viewport.live.panning { cursor: grabbing; }
+.viewport.live .sizer { position: absolute; inset: 0; }
+.edges { position: absolute; left: 0; top: 0; overflow: visible; }
+.edge path { fill: none; stroke: var(--edge); stroke-width: 1; }
+.edge:hover path { stroke: var(--edge-hover); stroke-width: 1.5; }
+#arrow polyline { fill: var(--edge); stroke: var(--edge); stroke-width: 1; stroke-linejoin: round; }
+.edge text {
+  font-size: 10px; fill: var(--edge-label); text-anchor: middle; dominant-baseline: central;
+  paint-order: stroke; stroke: var(--canvas-bg); stroke-width: 5px; stroke-linejoin: round;
+}
+.legend {
+  position: absolute; top: 15px; right: 15px; display: flex; gap: 12px; font-size: 11px;
+  background: var(--panel); border: 1px solid var(--card-border); border-radius: 6px; padding: 6px 10px; color: var(--panel-text);
+}
+.legend span { display: flex; align-items: center; gap: 5px; }
+.dot { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+.dot.pk { background: var(--pk-dot); }
+.dot.fk { background: var(--fk-dot); }
+.legend, .controls { cursor: default; }
+/* Svelte Flow <Controls> */
+.controls {
+  position: absolute; left: 15px; bottom: 15px; display: flex; flex-direction: column;
+  background: var(--panel); box-shadow: 0 0 2px 1px rgba(0, 0, 0, 0.08); border: 1px solid var(--bar-edge);
+}
+.controls button {
+  width: 26px; height: 26px; padding: 0; display: grid; place-items: center; cursor: pointer;
+  border: 0; border-bottom: 1px solid var(--panel-rule); background: var(--panel); color: var(--panel-text);
+  font-size: 16px; line-height: 1;
+}
+.controls button:hover { background: var(--panel-hover); }
+#zoom-level { font-size: 9px; color: var(--muted); text-align: center; padding: 4px 0; }
+
+/* --- table cards (TableNode) ------------------------------------------------- */
+.table {
+  position: absolute; width: var(--table-w); box-sizing: border-box; font-size: 12px;
+  background: var(--card); border: 1px solid var(--card-border); border-radius: 8px;
+  box-shadow: 0 2px 8px var(--card-shadow); overflow: hidden;
+}
+.live .table { cursor: grab; user-select: none; }
+.table.dragging { cursor: grabbing; box-shadow: 0 6px 18px rgba(15, 23, 42, 0.22); z-index: 1; }
+.table:target, .table.flash { outline: 2px solid var(--bad); outline-offset: 2px; }
+.table header {
+  height: var(--header-h); box-sizing: border-box; padding: 7px 12px;
+  display: flex; flex-direction: column; justify-content: center; gap: 1px;
+  background: var(--head-bg); color: var(--head-text);
+}
+.table .title { font-weight: 700; letter-spacing: 0.02em; }
+.table .desc { font-size: 10px; color: var(--head-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row {
+  height: var(--row-h); box-sizing: border-box; display: grid; grid-template-columns: 18px 1fr auto;
+  align-items: center; gap: 8px; padding: 0 12px; border-top: 1px solid var(--card-rule); white-space: nowrap;
+}
+.row.pk { background: var(--pk-row); }
+.row.fk { background: var(--fk-row); }
+.row.unresolved { background: var(--bad-row); box-shadow: inset 3px 0 0 var(--bad); }
+.row.unresolved .name, .row.unresolved .type { color: var(--bad-text); }
+.row.empty .name { color: var(--muted); font-style: italic; font-weight: 400; }
+.marker { text-align: center; font-size: 10px; }
+.name { font-weight: 500; color: var(--text); overflow: hidden; text-overflow: ellipsis; }
+.row.pk .name { font-weight: 700; }
+.req { color: var(--bad); margin-left: 1px; }
+.type { color: var(--type); font-family: ui-monospace, SFMono-Regular, monospace; font-size: 11px; }
+
+@media (max-width: 720px) {
+  .bar { padding: 8px 16px; gap: 6px 12px; }
+  .bar h1 { padding-left: 12px; }
+  .file, .legend { display: none; }
+}

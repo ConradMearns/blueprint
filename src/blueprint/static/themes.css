@@ -1,0 +1,121 @@
+/* Colour themes. `bp --theme NAME` bakes one into the page as <html data-theme="NAME">;
+   with no data-theme the page follows the OS (light / dark). Every block below that
+   matches :root[data-theme="..."] is offered by `bp --theme` and the page's theme menu. */
+
+/* Light -- the original Svelte app: slate chrome, Svelte Flow canvas, TableNode cards. */
+:root, :root[data-theme="light"] {
+  --bar-bg: #0f172a; --bar-btn: #1e293b; --bar-btn-hover: #334155; --bar-border: #334155;
+  --bar-text: #e2e8f0; --bar-strong: #f8fafc; --bar-muted: #94a3b8; --bar-dim: #64748b;
+  --bar-edge: transparent; --issues-text: #fecaca;
+  --primary-bg: #f8fafc; --primary-text: #0f172a; --primary-hover: #e2e8f0;
+  --canvas-bg: #ffffff; --canvas-dot: #91919a;
+  --edge: #b1b1b7; --edge-hover: #555555; --edge-label: #222222;
+  --card: #ffffff; --card-border: #c7ccd6; --card-rule: #eef1f6; --card-shadow: rgba(15, 23, 42, 0.12);
+  --head-bg: #1e293b; --head-text: #f8fafc; --head-muted: #cbd5e1;
+  --text: #0f172a; --muted: #64748b; --type: #64748b;
+  --pk-row: #fffbeb; --fk-row: #eff6ff; --pk-dot: #fcd34d; --fk-dot: #93c5fd;
+  --bad: #dc2626; --bad-text: #b91c1c; --bad-row: #fef2f2;
+  --ok: #4ade80; --err: #f87171;
+  --panel: #fefefe; --panel-text: #333333; --panel-rule: #eeeeee; --panel-hover: #f4f4f4;
+  color-scheme: light;
+}
+
+/* Dark -- slate canvas, cards one step lighter, tinted key rows. Also "auto" on a dark OS. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --bar-edge: #1e293b;
+    --canvas-bg: #020617; --canvas-dot: #334155;
+    --edge: #64748b; --edge-hover: #cbd5e1; --edge-label: #cbd5e1;
+    --card: #0f172a; --card-border: #334155; --card-rule: #1e293b; --card-shadow: rgba(0, 0, 0, 0.5);
+    --head-bg: #1e293b; --head-text: #f8fafc; --head-muted: #94a3b8;
+    --text: #e2e8f0; --muted: #94a3b8; --type: #94a3b8;
+    --pk-row: #292211; --fk-row: #0f1d36;
+    --bad: #ef4444; --bad-text: #fca5a5; --bad-row: #3b0d0d;
+    --panel: #0f172a; --panel-text: #e2e8f0; --panel-rule: #1e293b; --panel-hover: #1e293b;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bar-edge: #1e293b;
+  --canvas-bg: #020617; --canvas-dot: #334155;
+  --edge: #64748b; --edge-hover: #cbd5e1; --edge-label: #cbd5e1;
+  --card: #0f172a; --card-border: #334155; --card-rule: #1e293b; --card-shadow: rgba(0, 0, 0, 0.5);
+  --head-bg: #1e293b; --head-text: #f8fafc; --head-muted: #94a3b8;
+  --text: #e2e8f0; --muted: #94a3b8; --type: #94a3b8;
+  --pk-row: #292211; --fk-row: #0f1d36;
+  --bad: #ef4444; --bad-text: #fca5a5; --bad-row: #3b0d0d;
+  --panel: #0f172a; --panel-text: #e2e8f0; --panel-rule: #1e293b; --panel-hover: #1e293b;
+  color-scheme: dark;
+}
+
+/* Monokai -- green class names, cyan types, yellow keys. */
+:root[data-theme="monokai"] {
+  --bar-bg: #1e1f1c; --bar-btn: #272822; --bar-btn-hover: #3e3d32; --bar-border: #49483e;
+  --bar-text: #f8f8f2; --bar-strong: #f8f8f2; --bar-muted: #a59f85; --bar-dim: #75715e;
+  --bar-edge: #3e3d32; --issues-text: #f92672;
+  --primary-bg: #a6e22e; --primary-text: #1e1f1c; --primary-hover: #b6f03e;
+  --canvas-bg: #272822; --canvas-dot: #49483e;
+  --edge: #75715e; --edge-hover: #f8f8f2; --edge-label: #e6db74;
+  --card: #2d2e27; --card-border: #49483e; --card-rule: #3e3d32; --card-shadow: rgba(0, 0, 0, 0.5);
+  --head-bg: #1e1f1c; --head-text: #a6e22e; --head-muted: #908a6e;
+  --text: #f8f8f2; --muted: #75715e; --type: #66d9ef;
+  --pk-row: #3b3a2a; --fk-row: #283a3e; --pk-dot: #e6db74; --fk-dot: #66d9ef;
+  --bad: #f92672; --bad-text: #f92672; --bad-row: #3d2230;
+  --ok: #a6e22e; --err: #f92672;
+  --panel: #1e1f1c; --panel-text: #f8f8f2; --panel-rule: #3e3d32; --panel-hover: #3e3d32;
+  color-scheme: dark;
+}
+
+/* Dracula -- purple class names, cyan types. */
+:root[data-theme="dracula"] {
+  --bar-bg: #21222c; --bar-btn: #282a36; --bar-btn-hover: #44475a; --bar-border: #44475a;
+  --bar-text: #f8f8f2; --bar-strong: #f8f8f2; --bar-muted: #a4abd0; --bar-dim: #6272a4;
+  --bar-edge: #44475a; --issues-text: #ff79c6;
+  --primary-bg: #bd93f9; --primary-text: #21222c; --primary-hover: #cba8fb;
+  --canvas-bg: #282a36; --canvas-dot: #44475a;
+  --edge: #6272a4; --edge-hover: #f8f8f2; --edge-label: #f8f8f2;
+  --card: #2f3142; --card-border: #44475a; --card-rule: #3a3c4e; --card-shadow: rgba(0, 0, 0, 0.5);
+  --head-bg: #21222c; --head-text: #bd93f9; --head-muted: #7e8ab8;
+  --text: #f8f8f2; --muted: #6272a4; --type: #8be9fd;
+  --pk-row: #403f3c; --fk-row: #2f3c50; --pk-dot: #f1fa8c; --fk-dot: #8be9fd;
+  --bad: #ff5555; --bad-text: #ff6e6e; --bad-row: #47273a;
+  --ok: #50fa7b; --err: #ff5555;
+  --panel: #21222c; --panel-text: #f8f8f2; --panel-rule: #44475a; --panel-hover: #343746;
+  color-scheme: dark;
+}
+
+/* Nord -- polar night canvas, frost headers. */
+:root[data-theme="nord"] {
+  --bar-bg: #242933; --bar-btn: #2e3440; --bar-btn-hover: #3b4252; --bar-border: #434c5e;
+  --bar-text: #d8dee9; --bar-strong: #eceff4; --bar-muted: #a3adbf; --bar-dim: #707d95;
+  --bar-edge: #3b4252; --issues-text: #e5a0a6;
+  --primary-bg: #88c0d0; --primary-text: #2e3440; --primary-hover: #8fbcbb;
+  --canvas-bg: #2e3440; --canvas-dot: #434c5e;
+  --edge: #616e88; --edge-hover: #d8dee9; --edge-label: #d8dee9;
+  --card: #3b4252; --card-border: #4c566a; --card-rule: #434c5e; --card-shadow: rgba(0, 0, 0, 0.35);
+  --head-bg: #5e81ac; --head-text: #eceff4; --head-muted: #d8dee9;
+  --text: #eceff4; --muted: #8a95aa; --type: #88c0d0;
+  --pk-row: #4a4842; --fk-row: #3c4a5c; --pk-dot: #ebcb8b; --fk-dot: #88c0d0;
+  --bad: #bf616a; --bad-text: #e5a0a6; --bad-row: #4b3a44;
+  --ok: #a3be8c; --err: #d08770;
+  --panel: #3b4252; --panel-text: #eceff4; --panel-rule: #434c5e; --panel-hover: #434c5e;
+  color-scheme: dark;
+}
+
+/* Solarized (light) -- warm paper, base02 headers. */
+:root[data-theme="solarized"] {
+  --bar-bg: #eee8d5; --bar-btn: #fdf6e3; --bar-btn-hover: #e4ddc8; --bar-border: #d3cbb7;
+  --bar-text: #586e75; --bar-strong: #073642; --bar-muted: #657b83; --bar-dim: #93a1a1;
+  --bar-edge: #d3cbb7; --issues-text: #dc322f;
+  --primary-bg: #268bd2; --primary-text: #fdf6e3; --primary-hover: #3a97da;
+  --canvas-bg: #fdf6e3; --canvas-dot: #c9c2ae;
+  --edge: #93a1a1; --edge-hover: #586e75; --edge-label: #586e75;
+  --card: #fffcf4; --card-border: #d3cbb7; --card-rule: #eee8d5; --card-shadow: rgba(88, 110, 117, 0.15);
+  --head-bg: #073642; --head-text: #fdf6e3; --head-muted: #93a1a1;
+  --text: #073642; --muted: #93a1a1; --type: #2aa198;
+  --pk-row: #fbf1cf; --fk-row: #eaf2f5; --pk-dot: #b58900; --fk-dot: #268bd2;
+  --bad: #dc322f; --bad-text: #dc322f; --bad-row: #fbe7dd;
+  --ok: #859900; --err: #dc322f;
+  --panel: #fdf6e3; --panel-text: #586e75; --panel-rule: #eee8d5; --panel-hover: #eee8d5;
+  color-scheme: light;
+}
