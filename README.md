@@ -9,7 +9,8 @@ Point it at a LinkML schema and blueprint draws an entity-relationship diagram �
 one table per class, columns from slots, and edges for the foreign-key
 relationships implied by slots whose range is another class. The output is one
 self-contained `.html` file you can open locally, commit, or host anywhere. The
-diagram is plain HTML + SVG; a small inline script adds dragging and saving.
+diagram is plain HTML + SVG; a small inline script turns it into an infinite
+canvas you can pan, zoom and rearrange.
 
 Same idea as [dbml](https://dbml.dbdiagram.io/), except **LinkML is the source
 of truth** — no custom DSL.
@@ -32,7 +33,9 @@ stderr and listed at the top of the page; the affected columns are highlighted.
 
 ## Editing the canvas
 
-Drag tables around in the page, then click **Save canvas**. The page writes
+Drag the background to pan, scroll (or pinch) to zoom, and use the controls in
+the bottom-left to zoom or fit everything in view. Drag tables to rearrange
+them, then click **Save canvas** in the top bar. The page writes
 itself back out with your layout embedded — in Chromium-based browsers you
 pick the file once (choose the original `mydb.html` to overwrite it) and later
 saves go straight to it; other browsers download a copy, which you move over
@@ -69,7 +72,7 @@ uv run pytest
 | Parse LinkML → ER model | `src/blueprint/parse.py`  |
 | Layout + HTML/SVG       | `src/blueprint/render.py` |
 | Page styles             | `src/blueprint/static/style.css` |
-| Drag / save / reset     | `src/blueprint/static/canvas.js` |
+| Pan / zoom / drag / save | `src/blueprint/static/canvas.js` |
 | `bp` command            | `src/blueprint/cli.py`    |
 
 Edge routing exists twice — `edge_path` in `render.py` and `edgePath` in

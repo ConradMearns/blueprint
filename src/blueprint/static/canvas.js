@@ -1,19 +1,26 @@
-// Drag tables around and save the page back out with the new layout embedded.
+// Infinite canvas: pan, zoom, drag tables, and save the page back out with the layout embedded.
 // `edgePath` and `num` mirror render.py so redrawn edges match bp's output.
 (() => {
   'use strict';
-  const dataEl = document.getElementById('bp-data');
+  const $ = (id) => document.getElementById(id);
+  const dataEl = $('bp-data');
   const data = JSON.parse(dataEl.textContent);
   const G = data.geometry;
-  const canvas = document.getElementById('canvas');
-  const svg = document.getElementById('edges');
-  const stateEl = document.getElementById('save-state');
-  const tables = new Map([...canvas.querySelectorAll('.table')].map((t) => [t.dataset.name, t]));
+  const viewport = $('viewport');
+  const sizer = $('sizer');
+  const world = $('world');
+  const svg = $('edges');
+  const stateEl = $('save-state');
+  const tables = new Map([...world.querySelectorAll('.table')].map((t) => [t.dataset.name, t]));
   const edges = [...svg.querySelectorAll('.edge')];
+  const MIN_ZOOM = 0.1, MAX_ZOOM = 2, DOT_GAP = 20;
+  const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 
   let pinned = Object.keys(data.layout.tables || {}).length > 0;
   let dirty = false;
   let fileHandle = null;
+  let view = { x: 0, y: 0, k: 1 };
+  let viewTouched = false; // until the user pans/zooms, keep the content fitted on resize
 
   // --- geometry / routing (mirrors render.py) ------------------------------
   const num = (v) => String(Math.floor(v * 10 + 0.5) / 10);
@@ -73,41 +80,130 @@
     label.setAttribute('y', num(ly));
   }
 
-  function fitCanvas() {
-    let w = 0, h = 0;
+  /** Extent of everything drawn, in canvas coordinates. */
+  function contentBounds() {
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
     for (const t of tables.values()) {
-      w = Math.max(w, parseFloat(t.style.left) + G.tableW);
-      h = Math.max(h, parseFloat(t.style.top) + t.offsetHeight);
+      const x = parseFloat(t.style.left), y = parseFloat(t.style.top);
+      x0 = Math.min(x0, x), y0 = Math.min(y0, y);
+      x1 = Math.max(x1, x + G.tableW), y1 = Math.max(y1, y + t.offsetHeight);
     }
-    for (const e of edges) {
-      const b = e.getBBox();
-      w = Math.max(w, b.x + b.width);
-      h = Math.max(h, b.y + b.height);
+    const b = svg.getBBox();
+    if (b.width || b.height) {
+      x0 = Math.min(x0, b.x), y0 = Math.min(y0, b.y);
+      x1 = Math.max(x1, b.x + b.width), y1 = Math.max(y1, b.y + b.height);
     }
-    w = Math.ceil(w + G.pad), h = Math.ceil(h + G.pad);
-    canvas.style.width = `${w}px`;
-    canvas.style.height = `${h}px`;
-    svg.setAttribute('width', w);
-    svg.setAttribute('height', h);
+    return Number.isFinite(x0) ? { x0, y0, x1, y1 } : { x0: 0, y0: 0, x1: 0, y1: 0 };
   }
 
-  function setState(cls, text) {
-    if (!stateEl) return;
-    stateEl.className = `save-state ${cls}`;
-    stateEl.textContent = text;
+  // --- view: pan / zoom ------------------------------------------------------
+  function applyView(touched = true) {
+    viewTouched ||= touched;
+    world.style.transform = `translate(${view.x}px, ${view.y}px) scale(${view.k})`;
+    let gap = DOT_GAP * view.k;
+    while (gap < 10) gap *= 2; // thin out the dot grid when zoomed far out
+    viewport.style.backgroundSize = `${gap}px ${gap}px`;
+    viewport.style.backgroundPosition = `${view.x}px ${view.y}px`;
+    $('zoom-level').textContent = `${Math.round(view.k * 100)}%`;
   }
 
+  /** Zoom by `factor`, keeping the viewport point (cx, cy) fixed on screen. */
+  function zoomAt(cx, cy, factor) {
+    const k = clamp(view.k * factor, MIN_ZOOM, MAX_ZOOM);
+    const f = k / view.k;
+    view = { x: cx - (cx - view.x) * f, y: cy - (cy - view.y) * f, k };
+    applyView();
+  }
+
+  function zoomCenter(factor) {
+    zoomAt(viewport.clientWidth / 2, viewport.clientHeight / 2, factor);
+  }
+
+  function fitView() {
+    const b = contentBounds();
+    const pad = G.pad;
+    const w = Math.max(1, b.x1 - b.x0), h = Math.max(1, b.y1 - b.y0);
+    const vw = viewport.clientWidth, vh = viewport.clientHeight;
+    const k = clamp(Math.min((vw - 2 * pad) / w, (vh - 2 * pad) / h, 1), MIN_ZOOM, MAX_ZOOM);
+    view = { k, x: (vw - w * k) / 2 - b.x0 * k, y: (vh - h * k) / 2 - b.y0 * k };
+    applyView(false);
+  }
+
+  function centerOn(name) {
+    const t = tables.get(name);
+    if (!t) return;
+    const b = box(name);
+    view.x = viewport.clientWidth / 2 - (b.x + G.tableW / 2) * view.k;
+    view.y = viewport.clientHeight / 2 - (b.y + t.offsetHeight / 2) * view.k;
+    applyView();
+    t.classList.add('flash');
+    setTimeout(() => t.classList.remove('flash'), 1500);
+  }
+
+  // Drag the background to pan; two fingers pinch-zoom.
+  const pointers = new Map();
+  viewport.addEventListener('pointerdown', (e) => {
+    if (e.target.closest('.table, .controls, .legend')) return;
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    viewport.setPointerCapture(e.pointerId);
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    viewport.classList.add('panning');
+  });
+  viewport.addEventListener('pointermove', (e) => {
+    const p = pointers.get(e.pointerId);
+    if (!p) return;
+    const dx = e.clientX - p.x, dy = e.clientY - p.y;
+    if (pointers.size === 1) {
+      view.x += dx;
+      view.y += dy;
+      applyView();
+    } else if (pointers.size === 2) {
+      const other = [...pointers].find(([id]) => id !== e.pointerId)[1];
+      const before = Math.hypot(p.x - other.x, p.y - other.y);
+      const after = Math.hypot(e.clientX - other.x, e.clientY - other.y);
+      const r = viewport.getBoundingClientRect();
+      view.x += dx / 2;
+      view.y += dy / 2;
+      zoomAt((e.clientX + other.x) / 2 - r.left, (e.clientY + other.y) / 2 - r.top, before ? after / before : 1);
+    }
+    p.x = e.clientX;
+    p.y = e.clientY;
+  });
+  const release = (e) => {
+    pointers.delete(e.pointerId);
+    if (!pointers.size) viewport.classList.remove('panning');
+  };
+  viewport.addEventListener('pointerup', release);
+  viewport.addEventListener('pointercancel', release);
+
+  // Wheel / trackpad pinch zooms around the cursor (like Svelte Flow).
+  viewport.addEventListener(
+    'wheel',
+    (e) => {
+      if (e.target.closest('.controls, .legend')) return;
+      e.preventDefault();
+      const r = viewport.getBoundingClientRect();
+      const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? r.height : 1;
+      const speed = e.ctrlKey ? 0.01 : 0.002; // pinch gestures arrive as ctrl+wheel
+      zoomAt(e.clientX - r.left, e.clientY - r.top, Math.exp(-e.deltaY * unit * speed));
+    },
+    { passive: false }
+  );
+
+  // The page itself never scrolls; anchor jumps would scroll the hidden overflow.
+  viewport.addEventListener('scroll', () => viewport.scrollTo(0, 0));
+
+  // --- dragging tables -----------------------------------------------------------
   function markDirty() {
     dirty = true;
     setState('', 'unsaved changes');
   }
 
-  // --- dragging ------------------------------------------------------------
-  canvas.classList.add('draggable');
   for (const [name, t] of tables) {
     t.addEventListener('pointerdown', (ev) => {
       if (ev.button !== 0) return;
       ev.preventDefault();
+      ev.stopPropagation();
       t.setPointerCapture(ev.pointerId);
       t.classList.add('dragging');
       const start = { x: ev.clientX, y: ev.clientY, left: box(name).x, top: box(name).y };
@@ -115,8 +211,8 @@
       let moved = false;
 
       const move = (e) => {
-        const left = Math.max(0, Math.round(start.left + e.clientX - start.x));
-        const top = Math.max(0, Math.round(start.top + e.clientY - start.y));
+        const left = Math.round(start.left + (e.clientX - start.x) / view.k);
+        const top = Math.round(start.top + (e.clientY - start.y) / view.k);
         if (!moved && left === start.left && top === start.top) return;
         moved = true;
         t.style.left = `${left}px`;
@@ -131,7 +227,6 @@
         t.classList.remove('dragging');
         if (!moved) return;
         pinned = true;
-        fitCanvas();
         markDirty();
       };
       t.addEventListener('pointermove', move);
@@ -140,7 +235,12 @@
     });
   }
 
-  // --- reset / save ----------------------------------------------------------
+  // --- reset / save ------------------------------------------------------------
+  function setState(cls, text) {
+    stateEl.className = `save-state ${cls}`;
+    stateEl.textContent = text;
+  }
+
   function resetLayout() {
     for (const [name, pos] of Object.entries(data.auto.tables)) {
       const t = tables.get(name);
@@ -155,7 +255,7 @@
       redraw(edge);
     }
     pinned = false;
-    fitCanvas();
+    fitView();
     markDirty();
   }
 
@@ -173,11 +273,27 @@
     return layout;
   }
 
-  async function save() {
+  /** The page as bp would write it for the current layout (scrollable, no live view state). */
+  function snapshot() {
     data.layout = currentLayout();
     dataEl.textContent = JSON.stringify(data).replaceAll('</', '<\\/');
-    setState('', '');
-    const html = '<!doctype html>\n' + document.documentElement.outerHTML + '\n';
+    const doc = document.documentElement.cloneNode(true);
+    const q = (id) => doc.querySelector(`#${id}`);
+    const b = contentBounds();
+    q('viewport').className = 'viewport';
+    q('viewport').removeAttribute('style');
+    q('sizer').setAttribute('style', `width:${num(b.x1 - b.x0 + 2 * G.pad)}px;height:${num(b.y1 - b.y0 + 2 * G.pad)}px`);
+    q('world').setAttribute('style', `transform:translate(${num(G.pad - b.x0)}px,${num(G.pad - b.y0)}px)`);
+    q('actions').hidden = true;
+    q('controls').hidden = true;
+    q('save-state').className = 'save-state';
+    q('save-state').textContent = '';
+    for (const el of doc.querySelectorAll('.dragging, .flash')) el.classList.remove('dragging', 'flash');
+    return '<!doctype html>\n' + doc.outerHTML + '\n';
+  }
+
+  async function save() {
+    const html = snapshot();
     const name = data.file || 'blueprint.html';
     try {
       if (window.showSaveFilePicker) {
@@ -204,18 +320,26 @@
     }
   }
 
-  document.getElementById('actions').hidden = false;
-  document.getElementById('save').addEventListener('click', save);
-  document.getElementById('reset').addEventListener('click', resetLayout);
+  // --- wire up ---------------------------------------------------------------------
+  sizer.removeAttribute('style');
+  viewport.classList.add('live');
+  $('actions').hidden = false;
+  $('controls').hidden = false;
+  $('save').addEventListener('click', save);
+  $('reset').addEventListener('click', resetLayout);
+  $('zoom-in').addEventListener('click', () => zoomCenter(1.2));
+  $('zoom-out').addEventListener('click', () => zoomCenter(1 / 1.2));
+  $('fit').addEventListener('click', fitView);
+  for (const a of document.querySelectorAll('.problems a[data-table]')) {
+    a.addEventListener('click', (e) => {
+      e.preventDefault();
+      a.closest('details').open = false;
+      centerOn(a.dataset.table);
+    });
+  }
   window.addEventListener('beforeunload', (e) => {
     if (dirty) e.preventDefault();
   });
-
-  const panel = document.getElementById('panel');
-  const toggle = document.getElementById('toggle-panel');
-  toggle.hidden = false;
-  toggle.addEventListener('click', () => {
-    panel.classList.toggle('open');
-    toggle.textContent = panel.classList.contains('open') ? '◀' : '▶';
-  });
+  new ResizeObserver(() => viewTouched || fitView()).observe(viewport);
+  fitView();
 })();

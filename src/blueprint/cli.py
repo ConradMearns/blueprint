@@ -42,7 +42,6 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         schema = parse_linkml_file(args.schema)
-        source_text = args.schema.read_text(encoding="utf-8")
     except (OSError, yaml.YAMLError) as e:
         print(f"bp: {e}", file=sys.stderr)
         return 1
@@ -60,7 +59,6 @@ def main(argv: list[str] | None = None) -> int:
         schema,
         saved_layout=saved,
         source=args.schema.name,
-        source_text=source_text,
         output_name=out.name if out else None,
     )
     if out is None:

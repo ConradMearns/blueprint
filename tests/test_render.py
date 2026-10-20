@@ -44,6 +44,11 @@ def table_positions(html: str) -> dict[str, tuple[float, float]]:
     return {name: (float(x), float(y)) for name, x, y in found}
 
 
+def table_positions_signed(html: str) -> dict[str, tuple[float, float]]:
+    found = re.findall(r'data-name="(\w+)" style="left:(-?[\d.]+)px;top:(-?[\d.]+)px', html)
+    return {name: (float(x), float(y)) for name, x, y in found}
+
+
 def test_output_path_is_a_neighbour_html_file():
     assert output_path(Path("mydb.yaml")) == Path("mydb.html")
     assert output_path(Path("dir/schema.linkml.yaml")) == Path("dir/schema.linkml.html")
@@ -136,7 +141,21 @@ def test_html_draws_everything_without_javascript():
     assert html.count('class="table"') == len(schema.classes)
     assert html.count('<g class="edge"') == len(schema.foreign_keys)
     # Interactive controls stay hidden until the script reveals them.
-    assert '<div class="actions" id="actions" hidden>' in html
+    assert '<span class="actions" id="actions" hidden>' in html
+    assert '<div class="controls" id="controls" hidden>' in html
+
+
+def test_schema_source_is_not_embedded():
+    html = render_html(parse_linkml_file(EXAMPLE), source="ecommerce.linkml.yaml")
+    assert "prefixes:" not in html and "default_range" not in html
+
+
+def test_negative_positions_are_shifted_into_view_without_js():
+    schema = parse_linkml(TWO)
+    html = render_html(schema, saved_layout={"tables": {"A": {"x": -500, "y": -40}, "B": {"x": 0, "y": 0}}})
+    assert table_positions_signed(html)["A"] == (-500, -40)  # layout itself is untouched
+    m = re.search(r'id="world" style="transform:translate\(([\d.]+)px,([\d.]+)px\)"', html)
+    assert m and float(m.group(1)) >= 500 and float(m.group(2)) >= 40
 
 
 def test_fresh_render_has_no_pinned_layout():
@@ -154,7 +173,7 @@ def test_html_escapes_schema_text():
 
 def test_problems_are_listed():
     html = render_html(parse_linkml("name: x\nclasses:\n  A:\n    attributes:\n      b: { range: Nope }\n"))
-    assert '<span class="bad"><strong>1</strong> issues' in html
+    assert "⚠️ <strong>1</strong> issue</summary>" in html
     assert "range &quot;Nope&quot; is not a known class" in html
 
 

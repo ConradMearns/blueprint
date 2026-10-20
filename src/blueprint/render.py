@@ -315,15 +315,19 @@ def _table_html(c: Class, box: Box) -> str:
     )
 
 
-def _problems_html(schema: Schema) -> str:
-    if not schema.problems:
-        return ""
+def _issues_html(schema: Schema) -> str:
+    n = len(schema.problems)
+    if not n:
+        return '<span class="stat"><strong>0</strong> issues</span>'
     items = "".join(
-        f'<li title="{escape(p.message)}">⚠️ <a href="#{escape(p.class_name)}"><code>'
-        f"{escape(p.class_name)}.{escape(p.slot)}</code></a> — {escape(p.message)}</li>"
+        f'<li title="{escape(p.message)}"><a href="#{escape(p.class_name)}" data-table="{escape(p.class_name)}">'
+        f"<code>{escape(p.class_name)}.{escape(p.slot)}</code></a> — {escape(p.message)}</li>"
         for p in schema.problems
     )
-    return f'<ul class="problems">{items}</ul>'
+    return (
+        f'<details class="issues"><summary>⚠️ <strong>{n}</strong> issue{"s" if n != 1 else ""}</summary>'
+        f'<ul class="problems">{items}</ul></details>'
+    )
 
 
 def _json_script(data: Any) -> str:
@@ -334,12 +338,21 @@ def _asset(name: str) -> str:
     return files("blueprint").joinpath("static", name).read_text(encoding="utf-8")
 
 
+def _bounds(layout: Layout) -> tuple[float, float, float, float]:
+    """Extent of everything drawn, in canvas coordinates (positions may be negative)."""
+    xs = [b.x for b in layout.boxes.values()] + [b.right + 2 * LOOP for b in layout.boxes.values()]
+    ys = [b.y for b in layout.boxes.values()] + [b.y + b.h for b in layout.boxes.values()]
+    for pts in layout.waypoints.values():
+        xs += [x for x, _ in pts]
+        ys += [y + d for _, y in pts for d in (-ROW_H, ROW_H)]
+    return (min(xs, default=0), min(ys, default=0), max(xs, default=0), max(ys, default=0))
+
+
 def render_html(
     schema: Schema,
     *,
     saved_layout: dict[str, Any] | None = None,
     source: str | None = None,
-    source_text: str | None = None,
     output_name: str | None = None,
 ) -> str:
     """Render the schema as a complete, self-contained HTML document.
@@ -352,16 +365,14 @@ def render_html(
     pinned = layout is not auto
     classes = {c.name: c for c in schema.classes}
 
-    boxes = layout.boxes
-    lane_xs = [x for pts in layout.waypoints.values() for x, _ in pts]
-    lane_ys = [y for pts in layout.waypoints.values() for _, y in pts]
-    width = max([b.right for b in boxes.values()] + lane_xs + [0]) + PAD + LOOP
-    height = max([b.y + b.h for b in boxes.values()] + [y + ROW_H for y in lane_ys] + [0]) + PAD
+    # Without JS the page just scrolls, so shift everything into view; the
+    # script replaces this with a pannable, zoomable view fitted to the content.
+    x0, y0, x1, y1 = _bounds(layout)
+    width, height = x1 - x0 + 2 * PAD, y1 - y0 + 2 * PAD
 
     edges = "".join(_edge_svg(fk, classes, layout) for fk in schema.foreign_keys)
-    tables = "".join(_table_html(c, boxes[c.name]) for c in schema.classes)
+    tables = "".join(_table_html(c, layout.boxes[c.name]) for c in schema.classes)
     heading = escape(schema.title or schema.name)
-    n_problems = len(schema.problems)
 
     data = {
         "file": output_name,
@@ -375,7 +386,7 @@ def render_html(
         },
         # What "Save canvas" writes and the next `bp` run reads back.
         "layout": {
-            "tables": {n: {"x": b.x, "y": b.y} for n, b in boxes.items()},
+            "tables": {n: {"x": b.x, "y": b.y} for n, b in layout.boxes.items()},
             "edges": {k: [[x, y] for x, y in v] for k, v in layout.waypoints.items()},
         }
         if pinned
@@ -387,15 +398,11 @@ def render_html(
         },
     }
 
-    file_box = ""
+    file_label = ""
     if source:
-        file_box = (
-            f'<div class="file"><span class="path" title="{escape(source)}">📄 {escape(source)}</span>'
-            + (f'<span class="layout-path">↳ {escape(output_name)}</span>' if output_name else "")
-            + '<span class="save-state" id="save-state"></span></div>'
-        )
-    description = f'<p class="sub">{escape(schema.description)}</p>' if schema.description else ""
-    source_pre = f'<pre class="source">{escape(source_text)}</pre>' if source_text else ""
+        target = f" → {escape(output_name)}" if output_name else ""
+        file_label = f'<span class="file" title="{escape(source)}{target}">{escape(source)}{target}</span>'
+    description = f' title="{escape(schema.description)}"' if schema.description else ""
 
     return f"""<!doctype html>
 <html lang="en">
@@ -408,30 +415,23 @@ def render_html(
 {_asset("style.css")}</style>
 </head>
 <body>
-<div class="app">
-<aside id="panel" class="open">
-<div class="panel-head"><h1>blueprint</h1><button class="ghost" id="toggle-panel" title="Toggle panel" hidden>◀</button></div>
-<div class="panel-body">
-<h2>{heading}</h2>
-{description}
-{file_box}
-<div class="stats">
-<span><strong>{len(schema.classes)}</strong> classes</span>
-<span><strong>{len(schema.foreign_keys)}</strong> relations</span>
-<span{' class="bad"' if n_problems else ""}><strong>{n_problems}</strong> issues</span>
-</div>
-{_problems_html(schema)}
-<div class="actions" id="actions" hidden>
-<button id="save" title="Write this page back out with the current canvas layout">Save canvas</button>
+<header class="bar">
+<span class="brand">blueprint</span>
+<h1{description}>{heading}</h1>
+{file_label}
+<span class="stat"><strong>{len(schema.classes)}</strong> classes</span>
+<span class="stat"><strong>{len(schema.foreign_keys)}</strong> relations</span>
+{_issues_html(schema)}
+<span class="save-state" id="save-state"></span>
+<span class="actions" id="actions" hidden>
 <button id="reset" title="Discard manual positions and use the automatic layout">Reset layout</button>
-</div>
-{source_pre}
-</div>
-</aside>
-<main>
-<div class="viewport" id="viewport">
-<div class="canvas" id="canvas" style="width:{num(width)}px;height:{num(height)}px">
-<svg class="edges" id="edges" width="{num(width)}" height="{num(height)}" aria-hidden="true">
+<button id="save" class="primary" title="Write this page back out with the current canvas layout">Save canvas</button>
+</span>
+</header>
+<main class="viewport" id="viewport">
+<div class="sizer" id="sizer" style="width:{num(width)}px;height:{num(height)}px">
+<div class="world" id="world" style="transform:translate({num(PAD - x0)}px,{num(PAD - y0)}px)">
+<svg class="edges" id="edges" width="1" height="1" aria-hidden="true">
 <defs><marker id="arrow" viewBox="-10 -10 20 20" refX="0" refY="0" markerWidth="18" markerHeight="18" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><polyline points="-5,-4 0,0 -5,4 -5,-4"/></marker></defs>
 {edges}
 </svg>
@@ -439,8 +439,13 @@ def render_html(
 </div>
 </div>
 <div class="legend"><span><span class="dot pk"></span> primary key</span><span><span class="dot fk"></span> foreign key</span></div>
-</main>
+<div class="controls" id="controls" hidden>
+<button id="zoom-in" title="Zoom in">+</button>
+<button id="zoom-out" title="Zoom out">−</button>
+<button id="fit" title="Fit view">⛶</button>
+<span id="zoom-level">100%</span>
 </div>
+</main>
 <script type="application/json" id="bp-data">{_json_script(data)}</script>
 <script>
 {_asset("canvas.js")}</script>
