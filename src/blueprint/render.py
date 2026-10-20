@@ -352,6 +352,7 @@ def _asset(name: str) -> str:
 
 # "auto" follows the OS light/dark setting; the rest are the blocks in themes.css.
 THEMES = ("auto", *re.findall(r':root\[data-theme="([\w-]+)"\]', _asset("themes.css")))
+DEFAULT_THEME = "monokai"
 
 
 def _theme_menu(theme: str) -> str:
@@ -377,7 +378,7 @@ def render_html(
     saved_layout: dict[str, Any] | None = None,
     source: str | None = None,
     output_name: str | None = None,
-    theme: str = "auto",
+    theme: str = DEFAULT_THEME,
 ) -> str:
     """Render the schema as a complete, self-contained HTML document.
 

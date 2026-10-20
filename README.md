@@ -24,11 +24,11 @@ uv run bp mydb.yaml              # writes mydb.html next to the schema
 uv run bp mydb.yaml -o out.html  # choose the output path
 uv run bp mydb.yaml -o -         # write to stdout
 uv run bp mydb.yaml --open       # also open it in a browser
-uv run bp mydb.yaml --theme monokai
+uv run bp mydb.yaml --theme nord   # pick a colour theme
 ```
 
-Themes: `auto` (default — light or dark following your OS), `light`, `dark`,
-`monokai`, `dracula`, `nord`, `solarized`. The theme is stored in the page, so
+Themes: `monokai` (default), `auto` (light or dark following your OS),
+`light`, `dark`, `dracula`, `nord`, `solarized`. The theme is stored in the page, so
 later runs keep it until you pass another `--theme`. Viewers can switch theme
 from the menu in the top bar; that choice is remembered in their browser for
 that page and is not written into saved files. Themes are the

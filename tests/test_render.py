@@ -227,13 +227,13 @@ def test_themes_come_from_the_stylesheet():
 
 def test_theme_is_baked_into_the_page():
     schema = parse_linkml_file(EXAMPLE)
-    auto = render_html(schema)
-    assert '<html lang="en">' in auto
-    assert embedded_data(auto)["theme"] == "auto"
-    monokai = render_html(schema, theme="monokai")
+    monokai = render_html(schema)
     assert '<html lang="en" data-theme="monokai">' in monokai
     assert '<option value="monokai" selected>' in monokai
     assert embedded_data(monokai)["theme"] == "monokai"
+    auto = render_html(schema, theme="auto")
+    assert '<html lang="en">' in auto
+    assert embedded_data(auto)["theme"] == "auto"
 
 
 def test_unknown_theme_is_rejected():
@@ -250,12 +250,12 @@ def test_cli_theme_sticks_until_changed(tmp_path):
     schema = tmp_path / "db.yaml"
     schema.write_text(EXAMPLE.read_text())
     out = tmp_path / "db.html"
-    main([str(schema), "--theme", "monokai"])
-    assert embedded_data(out.read_text())["theme"] == "monokai"
     main([str(schema)])
     assert embedded_data(out.read_text())["theme"] == "monokai"
-    main([str(schema), "--theme", "auto"])
-    assert embedded_data(out.read_text())["theme"] == "auto"
+    main([str(schema), "--theme", "nord"])
+    assert embedded_data(out.read_text())["theme"] == "nord"
+    main([str(schema)])
+    assert embedded_data(out.read_text())["theme"] == "nord"
 
 
 def test_cli_rejects_unknown_theme(tmp_path, capsys):
