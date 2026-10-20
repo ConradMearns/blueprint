@@ -1,4 +1,4 @@
-"""blueprint: render a LinkML schema as a static ER-diagram HTML page."""
+"""linkml-herd: render a LinkML schema as a static ER-diagram HTML page."""
 
 from .parse import parse_linkml, parse_linkml_file
 from .render import render_html

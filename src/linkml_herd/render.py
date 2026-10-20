@@ -198,12 +198,13 @@ def apply_saved_layout(schema: Schema, auto: Layout, saved: dict[str, Any]) -> L
 
 
 def read_saved_data(html_path: Path) -> dict[str, Any]:
-    """The embedded data of a page previously written by bp (or saved from it), or {}."""
+    """The embedded data of a page previously written by linkml-herd (or saved from it), or {}."""
     try:
         text = html_path.read_text(encoding="utf-8")
     except OSError:
         return {}
-    m = re.search(r'<script[^>]*\bid="bp-data"[^>]*>(.*?)</script>', text, re.DOTALL)
+    # "bp-data": pages written before the rename to linkml-herd.
+    m = re.search(r'<script[^>]*\bid="(?:herd|bp)-data"[^>]*>(.*?)</script>', text, re.DOTALL)
     if not m:
         return {}
     try:
@@ -214,13 +215,13 @@ def read_saved_data(html_path: Path) -> dict[str, Any]:
 
 
 def read_saved_layout(html_path: Path) -> dict[str, Any]:
-    """Pull the canvas layout out of a page previously written by bp (or saved from it)."""
+    """Pull the canvas layout out of a page previously written by linkml-herd (or saved from it)."""
     layout = read_saved_data(html_path).get("layout")
     return layout if isinstance(layout, dict) else {}
 
 
 def read_saved_theme(html_path: Path) -> str | None:
-    """The theme a previous `bp --theme` baked into the page, if it is still one we know."""
+    """The theme a previous `linkml-herd --theme` baked into the page, if it is still one we know."""
     theme = read_saved_data(html_path).get("theme")
     return theme if theme in THEMES else None
 
@@ -352,7 +353,7 @@ def _json_script(data: Any) -> str:
 
 
 def _asset(name: str) -> str:
-    return files("blueprint").joinpath("static", name).read_text(encoding="utf-8")
+    return files("linkml_herd").joinpath("static", name).read_text(encoding="utf-8")
 
 
 # "auto" follows the OS light/dark setting; the rest are the blocks in themes.css.
@@ -379,7 +380,7 @@ def _bounds(layout: Layout) -> tuple[float, float, float, float]:
 
 # --- SVG image -----------------------------------------------------------------
 # The same diagram drawn with plain SVG shapes and text (no HTML, no CSS), for
-# `bp --svg` and the page's "Export SVG" button. Colours come from a `Color`
+# `linkml-herd --svg` and the page's "Export SVG" button. Colours come from a `Color`
 # lookup: literal theme values for a file, or var(--token) in the page's
 # template, which the button fills in from the theme being shown.
 
@@ -486,7 +487,7 @@ def _edge_image(fk: ForeignKey, classes: dict[str, Class], layout: Layout, color
     d, (lx, ly) = _edge_geometry(fk, classes, layout)
     return (
         f'<g data-id="{escape(fk.id)}"><path d="{d}" fill="none" stroke="{color("edge")}"'
-        ' marker-end="url(#bp-arrow)"/>'
+        ' marker-end="url(#herd-arrow)"/>'
         + _svg_text(
             lx,
             ly,
@@ -509,12 +510,12 @@ def _svg_image(schema: Schema, layout: Layout, color: Color) -> str:
     x, y, w, h = (num(v) for v in (x0 - PAD, y0 - PAD, x1 - x0 + 2 * PAD, y1 - y0 + 2 * PAD))
     edges = "".join(_edge_image(fk, classes, layout, color) for fk in schema.foreign_keys)
     tables = "".join(
-        _table_image(c, layout.boxes[c.name], color, f"bp-clip-{i}") for i, c in enumerate(schema.classes)
+        _table_image(c, layout.boxes[c.name], color, f"herd-clip-{i}") for i, c in enumerate(schema.classes)
     )
     return (
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="{x} {y} {w} {h}" width="{w}" height="{h}">'
         f"<title>{escape(schema.title or schema.name)}</title>"
-        '<defs><marker id="bp-arrow" viewBox="-10 -10 20 20" refX="0" refY="0" markerWidth="18"'
+        '<defs><marker id="herd-arrow" viewBox="-10 -10 20 20" refX="0" refY="0" markerWidth="18"'
         ' markerHeight="18" markerUnits="userSpaceOnUse" orient="auto-start-reverse">'
         f'<polyline points="-5,-4 0,0 -5,4 -5,-4" fill="{color("edge")}" stroke="{color("edge")}"'
         ' stroke-linejoin="round"/></marker></defs>'
@@ -574,7 +575,7 @@ def render_html(
             "loop": LOOP,
             "pad": PAD,
         },
-        # What "Save canvas" writes and the next `bp` run reads back.
+        # What "Save canvas" writes and the next `linkml-herd` run reads back.
         "layout": {
             "tables": {n: {"x": b.x, "y": b.y} for n, b in layout.boxes.items()},
             "edges": {k: [[x, y] for x, y in v] for k, v in layout.waypoints.items()},
@@ -600,7 +601,7 @@ def render_html(
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{heading}</title>
-<script>try {{ const r = document.documentElement, t = localStorage.getItem("bp-theme:" + location.pathname + ":" + (r.dataset.theme || "auto")); if (t === "auto") delete r.dataset.theme; else if (t) r.dataset.theme = t; }} catch {{}}</script>
+<script>try {{ const r = document.documentElement, t = localStorage.getItem("herd-theme:" + location.pathname + ":" + (r.dataset.theme || "auto")); if (t === "auto") delete r.dataset.theme; else if (t) r.dataset.theme = t; }} catch {{}}</script>
 <style>
 :root {{ --table-w: {TABLE_W}px; --header-h: {HEADER_H}px; --row-h: {ROW_H}px; }}
 {_asset("themes.css")}
@@ -608,7 +609,7 @@ def render_html(
 </head>
 <body>
 <header class="bar">
-<span class="brand">blueprint</span>
+<span class="brand">linkml-herd</span>
 <h1{description}>{heading}</h1>
 {file_label}
 <span class="stat"><strong>{len(schema.classes)}</strong> classes</span>
@@ -640,8 +641,8 @@ def render_html(
 <span id="zoom-level">100%</span>
 </div>
 </main>
-<template id="bp-svg">{_svg_image(schema, layout, css_var)}</template>
-<script type="application/json" id="bp-data">{_json_script(data)}</script>
+<template id="herd-svg">{_svg_image(schema, layout, css_var)}</template>
+<script type="application/json" id="herd-data">{_json_script(data)}</script>
 <script>
 {_asset("canvas.js")}</script>
 </body>

@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from blueprint.parse import Schema, parse_linkml_file
+from linkml_herd.parse import Schema, parse_linkml_file
 
 ROOT = Path(__file__).parent.parent
 FIXTURES = Path(__file__).parent / "fixtures"

@@ -1,6 +1,6 @@
-/* Colour themes. `bp --theme NAME` bakes one into the page as <html data-theme="NAME">;
+/* Colour themes. `linkml-herd --theme NAME` bakes one into the page as <html data-theme="NAME">;
    with no data-theme the page follows the OS (light / dark). Every block below that
-   matches :root[data-theme="..."] is offered by `bp --theme` and the page's theme menu. */
+   matches :root[data-theme="..."] is offered by `linkml-herd --theme` and the page's theme menu. */
 
 /* Light -- the original Svelte app: slate chrome, Svelte Flow canvas, TableNode cards. */
 :root, :root[data-theme="light"] {

@@ -1,6 +1,6 @@
-"""`bp` -- render a LinkML schema to an HTML ER diagram.
+"""`linkml-herd` -- render a LinkML schema to an HTML ER diagram.
 
-Re-running bp keeps the canvas layout saved in the existing output page (via
+Re-running linkml-herd keeps the canvas layout saved in the existing output page (via
 its "Save canvas" button), so schema edits never undo where you put things.
 """
 
@@ -24,7 +24,7 @@ def output_path(schema_path: Path) -> Path:
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(
-        prog="bp", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+        prog="linkml-herd", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
     ap.add_argument("schema", type=Path, help="LinkML schema (.yaml)")
     ap.add_argument("-o", "--output", help="output file, or '-' for stdout (default: <schema>.html)")
@@ -55,7 +55,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         schema = parse_linkml_file(args.schema)
     except (OSError, yaml.YAMLError) as e:
-        print(f"bp: {e}", file=sys.stderr)
+        print(f"linkml-herd: {e}", file=sys.stderr)
         return 1
 
     for p in schema.problems:
