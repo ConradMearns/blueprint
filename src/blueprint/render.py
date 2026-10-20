@@ -15,6 +15,7 @@ from __future__ import annotations
 import json
 import math
 import re
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from html import escape
 from importlib.resources import files
@@ -275,12 +276,16 @@ def _slot_index(c: Class, slot: str | None) -> int:
     return next((i for i, s in enumerate(c.slots) if s.name == slot), -1)
 
 
-def _edge_svg(fk: ForeignKey, classes: dict[str, Class], layout: Layout) -> str:
+def _edge_geometry(fk: ForeignKey, classes: dict[str, Class], layout: Layout) -> tuple[str, Point]:
     src, dst = layout.boxes[fk.from_class], layout.boxes[fk.to_class]
     sy = row_y(src, _slot_index(classes[fk.from_class], fk.from_slot))
     ty = row_y(dst, _slot_index(classes[fk.to_class], fk.to_slot))
+    return edge_path(src, sy, dst, ty, layout.waypoints.get(fk.id, []))
+
+
+def _edge_svg(fk: ForeignKey, classes: dict[str, Class], layout: Layout) -> str:
     waypoints = layout.waypoints.get(fk.id, [])
-    d, (lx, ly) = edge_path(src, sy, dst, ty, waypoints)
+    d, (lx, ly) = _edge_geometry(fk, classes, layout)
 
     attrs = {
         "data-id": fk.id,
@@ -372,6 +377,162 @@ def _bounds(layout: Layout) -> tuple[float, float, float, float]:
     return (min(xs, default=0), min(ys, default=0), max(xs, default=0), max(ys, default=0))
 
 
+# --- SVG image -----------------------------------------------------------------
+# The same diagram drawn with plain SVG shapes and text (no HTML, no CSS), for
+# `bp --svg` and the page's "Export SVG" button. Colours come from a `Color`
+# lookup: literal theme values for a file, or var(--token) in the page's
+# template, which the button fills in from the theme being shown.
+
+Color = Callable[[str], str]
+SANS = "ui-sans-serif, system-ui, -apple-system, sans-serif"
+MONO = "ui-monospace, SFMono-Regular, monospace"
+
+
+def css_var(token: str) -> str:
+    return f"var(--{token})"
+
+
+def theme_colors(theme: str) -> Color:
+    """Look up colour tokens as the given theme sets them ("auto" draws as light)."""
+    css = _asset("themes.css")
+    tokens: dict[str, str] = {}
+    for name in ("light", theme):
+        m = re.search(r':root\[data-theme="' + re.escape(name) + r'"\]\s*\{([^}]*)\}', css)
+        if m:
+            tokens.update(re.findall(r"--([\w-]+):\s*([^;]+?)\s*;", m.group(1)))
+    return tokens.__getitem__
+
+
+def _fit(text: str, width: float, char_w: float) -> str:
+    """Shorten text to roughly `width` px (SVG can't ellipsize), given an average glyph width."""
+    if len(text) * char_w <= width:
+        return text
+    return text[: max(1, int(width / char_w) - 1)].rstrip() + "…"
+
+
+def _svg_text(x: float, y: float, content: str, color: str, size: float, **attrs: str) -> str:
+    """Text vertically centred on y."""
+    attrs = {"font_family": SANS, **attrs}
+    extra = "".join(f' {k.replace("_", "-")}="{v}"' for k, v in attrs.items())
+    return f'<text x="{num(x)}" y="{num(y)}" dy="0.35em" font-size="{size}" fill="{color}"{extra}>{content}</text>'
+
+
+def _table_image(c: Class, box: Box, color: Color, clip_id: str) -> str:
+    w, h = TABLE_W, table_height(c)
+    inner_x, right = BORDER + 12, TABLE_W - BORDER - 12  # .row / header padding
+    shapes = [
+        f'<rect width="{w}" height="{num(h)}" fill="{color("card")}"/>',
+        f'<rect width="{w}" height="{BORDER + HEADER_H}" fill="{color("head-bg")}"/>',
+    ]
+    texts = []
+    if c.description:
+        texts.append(
+            _svg_text(inner_x, BORDER + 16, escape(c.name), color("head-text"), 12, font_weight="700")
+        )
+        desc = _fit(c.description, right - inner_x, 5.4)
+        texts.append(_svg_text(inner_x, BORDER + 31, escape(desc), color("head-muted"), 10))
+    else:
+        texts.append(
+            _svg_text(
+                inner_x, BORDER + HEADER_H / 2, escape(c.name), color("head-text"), 12, font_weight="700"
+            )
+        )
+
+    for i, s in enumerate(c.slots or [None]):
+        top = BORDER + HEADER_H + i * ROW_H
+        mid = top + ROW_H / 2
+        if s is None:
+            texts.append(_svg_text(inner_x + 26, mid, "no columns", color("muted"), 12, font_style="italic"))
+        else:
+            bg = "bad-row" if s.unresolved else "pk-row" if s.pk else "fk-row" if s.ref_class else None
+            if bg:
+                shapes.append(f'<rect y="{top}" width="{w}" height="{ROW_H}" fill="{color(bg)}"/>')
+            if s.unresolved:
+                shapes.append(
+                    f'<rect x="{BORDER}" y="{top}" width="3" height="{ROW_H}" fill="{color("bad")}"/>'
+                )
+            marker = "⚠️" if s.unresolved else "🔑" if s.pk else "🔗" if s.ref_class else ""
+            if marker:
+                texts.append(_svg_text(inner_x + 9, mid, marker, color("text"), 10, text_anchor="middle"))
+            typ = s.range + ("[]" if s.multivalued else "")
+            name_c, type_c = (
+                (color("bad-text"), color("bad-text")) if s.unresolved else (color("text"), color("type"))
+            )
+            room = right - (inner_x + 26) - len(typ) * 6.6 - 8 - (8 if s.required else 0)
+            req = f'<tspan fill="{color("bad")}">*</tspan>' if s.required else ""
+            texts.append(
+                _svg_text(
+                    inner_x + 26,
+                    mid,
+                    escape(_fit(s.name, room, 7)) + req,
+                    name_c,
+                    12,
+                    font_weight="700" if s.pk else "500",
+                )
+            )
+            texts.append(_svg_text(right, mid, escape(typ), type_c, 11, font_family=MONO, text_anchor="end"))
+        shapes.append(f'<rect y="{top}" width="{w}" height="1" fill="{color("card-rule")}"/>')
+
+    return (
+        f'<g data-name="{escape(c.name)}" transform="translate({num(box.x)},{num(box.y)})">'
+        f'<clipPath id="{clip_id}"><rect width="{w}" height="{num(h)}" rx="8"/></clipPath>'
+        f'<g clip-path="url(#{clip_id})">{"".join(shapes)}</g>'
+        f'<rect x="0.5" y="0.5" width="{w - 1}" height="{num(h - 1)}" rx="7.5" fill="none"'
+        f' stroke="{color("card-border")}"/>' + "".join(texts) + "</g>"
+    )
+
+
+def _edge_image(fk: ForeignKey, classes: dict[str, Class], layout: Layout, color: Color) -> str:
+    d, (lx, ly) = _edge_geometry(fk, classes, layout)
+    return (
+        f'<g data-id="{escape(fk.id)}"><path d="{d}" fill="none" stroke="{color("edge")}"'
+        ' marker-end="url(#bp-arrow)"/>'
+        + _svg_text(
+            lx,
+            ly,
+            escape(fk.cardinality),
+            color("edge-label"),
+            10,
+            text_anchor="middle",
+            stroke=color("canvas-bg"),
+            stroke_width="5",
+            stroke_linejoin="round",
+            paint_order="stroke",
+        )
+        + "</g>"
+    )
+
+
+def _svg_image(schema: Schema, layout: Layout, color: Color) -> str:
+    classes = {c.name: c for c in schema.classes}
+    x0, y0, x1, y1 = _bounds(layout)
+    x, y, w, h = (num(v) for v in (x0 - PAD, y0 - PAD, x1 - x0 + 2 * PAD, y1 - y0 + 2 * PAD))
+    edges = "".join(_edge_image(fk, classes, layout, color) for fk in schema.foreign_keys)
+    tables = "".join(
+        _table_image(c, layout.boxes[c.name], color, f"bp-clip-{i}") for i, c in enumerate(schema.classes)
+    )
+    return (
+        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="{x} {y} {w} {h}" width="{w}" height="{h}">'
+        f"<title>{escape(schema.title or schema.name)}</title>"
+        '<defs><marker id="bp-arrow" viewBox="-10 -10 20 20" refX="0" refY="0" markerWidth="18"'
+        ' markerHeight="18" markerUnits="userSpaceOnUse" orient="auto-start-reverse">'
+        f'<polyline points="-5,-4 0,0 -5,4 -5,-4" fill="{color("edge")}" stroke="{color("edge")}"'
+        ' stroke-linejoin="round"/></marker></defs>'
+        f'<rect data-bg="" x="{x}" y="{y}" width="{w}" height="{h}" fill="{color("canvas-bg")}"/>'
+        f"{edges}{tables}</svg>"
+    )
+
+
+def render_svg(
+    schema: Schema, *, saved_layout: dict[str, Any] | None = None, theme: str = DEFAULT_THEME
+) -> str:
+    """Render the diagram as a standalone SVG image in `theme`'s colours ("auto" draws as light)."""
+    if theme not in THEMES:
+        raise ValueError(f"unknown theme {theme!r} (choose from {', '.join(THEMES)})")
+    layout = apply_saved_layout(schema, auto_layout(schema), saved_layout or {})
+    return '<?xml version="1.0" encoding="UTF-8"?>\n' + _svg_image(schema, layout, theme_colors(theme)) + "\n"
+
+
 def render_html(
     schema: Schema,
     *,
@@ -456,6 +617,7 @@ def render_html(
 <span class="save-state" id="save-state"></span>
 <span class="actions" id="actions" hidden>
 {_theme_menu(theme)}
+<button id="export" title="Download the diagram as an SVG image">Export SVG</button>
 <button id="reset" title="Discard manual positions and use the automatic layout">Reset layout</button>
 <button id="save" class="primary" title="Write this page back out with the current canvas layout">Save canvas</button>
 </span>
@@ -478,6 +640,7 @@ def render_html(
 <span id="zoom-level">100%</span>
 </div>
 </main>
+<template id="bp-svg">{_svg_image(schema, layout, css_var)}</template>
 <script type="application/json" id="bp-data">{_json_script(data)}</script>
 <script>
 {_asset("canvas.js")}</script>

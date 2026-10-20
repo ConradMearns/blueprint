@@ -348,6 +348,14 @@
     return true;
   }
 
+  function download(text, name, type) {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([text], { type }));
+    a.download = name;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
   async function save() {
     const html = snapshot();
     const name = data.file || 'blueprint.html';
@@ -372,17 +380,63 @@
         fileHandle = Promise.resolve(handle);
         setState('saved', `saved ✓ ${handle.name}`);
       } else {
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
-        a.download = name;
-        a.click();
-        URL.revokeObjectURL(a.href);
+        download(html, name, 'text/html');
         setState('saved', `downloaded ${name} — replace the original with it`);
       }
       dirty = false;
     } catch (err) {
       if (err.name === 'AbortError') return setState('', dirty ? 'unsaved changes' : '');
       setState('error', `save failed: ${err.message}`);
+    }
+  }
+
+  // --- SVG export -------------------------------------------------------------------
+  // bp draws the diagram as a plain SVG image into <template id="bp-svg">, coloured with
+  // var(--token). Export moves it to the current layout and fills in the theme on screen.
+  function svgSnapshot() {
+    const img = $('bp-svg').content.firstElementChild.cloneNode(true);
+    const b = contentBounds();
+    const [x, y, w, h] = [b.x0 - G.pad, b.y0 - G.pad, b.x1 - b.x0 + 2 * G.pad, b.y1 - b.y0 + 2 * G.pad].map(num);
+    img.setAttribute('viewBox', `${x} ${y} ${w} ${h}`);
+    img.setAttribute('width', w);
+    img.setAttribute('height', h);
+    const bg = img.querySelector('[data-bg]');
+    for (const [k, v] of Object.entries({ x, y, width: w, height: h })) bg.setAttribute(k, v);
+    for (const g of img.querySelectorAll('g[data-name]')) {
+      const t = tables.get(g.dataset.name);
+      g.setAttribute('transform', `translate(${num(parseFloat(t.style.left))},${num(parseFloat(t.style.top))})`);
+    }
+    const drawn = new Map([...img.querySelectorAll('g[data-id]')].map((g) => [g.dataset.id, g]));
+    for (const edge of edges) {
+      const g = drawn.get(edge.dataset.id);
+      g.querySelector('path').setAttribute('d', edge.querySelector('path').getAttribute('d'));
+      for (const k of ['x', 'y']) g.querySelector('text').setAttribute(k, edge.querySelector('text').getAttribute(k));
+    }
+    const style = getComputedStyle(document.documentElement);
+    const text = new XMLSerializer().serializeToString(img);
+    return '<?xml version="1.0" encoding="UTF-8"?>\n' +
+      text.replace(/var\(--([\w-]+)\)/g, (_, t) => style.getPropertyValue(`--${t}`).trim()) + '\n';
+  }
+
+  async function exportSvg() {
+    const image = svgSnapshot();
+    const name = (data.file || 'blueprint.html').replace(/\.html?$/i, '') + '.svg';
+    try {
+      if (window.showSaveFilePicker) {
+        const handle = await window.showSaveFilePicker({
+          suggestedName: name,
+          id: pickerId(),
+          types: [{ description: 'SVG image', accept: { 'image/svg+xml': ['.svg'] } }]
+        });
+        await writeTo(handle, image);
+        setState('saved', `exported ✓ ${handle.name}`);
+      } else {
+        download(image, name, 'image/svg+xml');
+        setState('saved', `downloaded ${name}`);
+      }
+    } catch (err) {
+      if (err.name === 'AbortError') return setState('', dirty ? 'unsaved changes' : '');
+      setState('error', `export failed: ${err.message}`);
     }
   }
 
@@ -410,6 +464,7 @@
   $('controls').hidden = false;
   $('save').addEventListener('click', save);
   $('reset').addEventListener('click', resetLayout);
+  $('export').addEventListener('click', exportSvg);
   $('theme').value = document.documentElement.dataset.theme || 'auto';
   $('theme').addEventListener('change', (e) => setTheme(e.target.value));
   $('zoom-in').addEventListener('click', () => zoomCenter(1.2));

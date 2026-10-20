@@ -14,7 +14,7 @@ from pathlib import Path
 import yaml
 
 from .parse import parse_linkml_file
-from .render import DEFAULT_THEME, THEMES, read_saved_layout, read_saved_theme, render_html
+from .render import DEFAULT_THEME, THEMES, read_saved_layout, read_saved_theme, render_html, render_svg
 
 
 def output_path(schema_path: Path) -> Path:
@@ -43,6 +43,12 @@ def main(argv: list[str] | None = None) -> int:
         help="colour theme baked into the page (default: the one the output page already has, "
         f"else {DEFAULT_THEME}; auto follows the OS light/dark setting)",
     )
+    ap.add_argument(
+        "--svg",
+        action="store_true",
+        help="write an SVG image instead of the page (default: <schema>.svg; implied by -o *.svg), "
+        "laid out and themed like <schema>.html if it exists",
+    )
     ap.add_argument("--open", action="store_true", help="open the result in a browser")
     args = ap.parse_args(argv)
 
@@ -55,25 +61,38 @@ def main(argv: list[str] | None = None) -> int:
     for p in schema.problems:
         print(f"{p.level}: {p.class_name}.{p.slot}: {p.message}", file=sys.stderr)
 
-    out = None if args.output == "-" else Path(args.output) if args.output else output_path(args.schema)
-    layout_from = args.layout or out
+    svg = args.svg or (args.output or "").lower().endswith(".svg")
+    page = output_path(args.schema)  # where the canvas layout and theme live
+    if args.output == "-":
+        out = None
+    elif args.output:
+        out = Path(args.output)
+    else:
+        out = args.schema.with_suffix(".svg") if svg else page
+    if not svg:
+        page = out
+
+    layout_from = args.layout or page
     saved = {} if args.relayout or layout_from is None else read_saved_layout(layout_from)
     if saved.get("tables"):
         print(f"keeping canvas layout saved in {layout_from}", file=sys.stderr)
+    theme = args.theme or (read_saved_theme(layout_from) if layout_from else None) or DEFAULT_THEME
 
-    theme = args.theme or (read_saved_theme(out) if out else None) or DEFAULT_THEME
-    html = render_html(
-        schema,
-        saved_layout=saved,
-        source=args.schema.name,
-        output_name=out.name if out else None,
-        theme=theme,
-    )
+    if svg:
+        text = render_svg(schema, saved_layout=saved, theme=theme)
+    else:
+        text = render_html(
+            schema,
+            saved_layout=saved,
+            source=args.schema.name,
+            output_name=out.name if out else None,
+            theme=theme,
+        )
     if out is None:
-        sys.stdout.write(html)
+        sys.stdout.write(text)
         return 0
 
-    out.write_text(html, encoding="utf-8")
+    out.write_text(text, encoding="utf-8")
     print(f"wrote {out}", file=sys.stderr)
     if args.open:
         webbrowser.open(out.resolve().as_uri())

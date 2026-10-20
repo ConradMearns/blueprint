@@ -1,5 +1,6 @@
 import json
 import re
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 from blueprint.cli import main, output_path
@@ -13,8 +14,10 @@ from blueprint.render import (
     num,
     read_saved_layout,
     render_html,
+    render_svg,
 )
 
+SVG = "{http://www.w3.org/2000/svg}"
 EXAMPLE = Path(__file__).parent.parent / "examples" / "ecommerce.linkml.yaml"
 
 
@@ -266,6 +269,73 @@ def test_cli_rejects_unknown_theme(tmp_path, capsys):
     except SystemExit as e:
         assert e.code == 2
     assert "monokai" in capsys.readouterr().err
+
+
+def svg_positions(svg: str) -> dict[str, tuple[float, float]]:
+    root = ET.fromstring(svg.split("\n", 1)[1])
+    return {
+        g.get("data-name"): tuple(map(float, re.findall(r"-?[\d.]+", g.get("transform"))))
+        for g in root.iter(f"{SVG}g")
+        if g.get("data-name")
+    }
+
+
+def test_svg_draws_every_table_and_edge():
+    schema = parse_linkml_file(EXAMPLE)
+    svg = render_svg(schema)
+    assert svg.startswith("<?xml")
+    root = ET.fromstring(svg.split("\n", 1)[1])
+    groups = list(root.iter(f"{SVG}g"))
+    assert {g.get("data-name") for g in groups} - {None} == {c.name for c in schema.classes}
+    assert {g.get("data-id") for g in groups} - {None} == {fk.id for fk in schema.foreign_keys}
+    assert "var(" not in svg  # colours resolved, no CSS needed
+
+
+def test_svg_uses_theme_colours():
+    schema = parse_linkml_file(EXAMPLE)
+    assert 'fill="#272822"' in render_svg(schema, theme="monokai")
+    assert 'fill="#ffffff"' in render_svg(schema, theme="auto")  # auto draws as light
+    assert 'fill="#2e3440"' in render_svg(schema, theme="nord")
+
+
+def test_svg_follows_saved_layout():
+    schema = parse_linkml_file(EXAMPLE)
+    tables = {c.name: {"x": 0, "y": 0} for c in schema.classes} | {"Customer": {"x": 1234, "y": -50}}
+    assert svg_positions(render_svg(schema, saved_layout={"tables": tables}))["Customer"] == (1234, -50)
+
+
+def test_svg_escapes_schema_text():
+    svg = render_svg(parse_linkml('name: x\nclasses:\n  A:\n    description: "<b>&</script>"\n'))
+    ET.fromstring(svg.split("\n", 1)[1])
+    assert "<b>" not in svg
+
+
+def test_page_carries_svg_template_for_export():
+    html = render_html(parse_linkml_file(EXAMPLE))
+    m = re.search(r'<template id="bp-svg">(<svg .*?</svg>)</template>', html, re.DOTALL)
+    assert m and "var(--card)" in m.group(1)
+    assert 'id="export"' in html
+
+
+def test_cli_svg_uses_neighbour_page_layout_and_theme(tmp_path):
+    schema = tmp_path / "db.yaml"
+    schema.write_text(EXAMPLE.read_text())
+    page = tmp_path / "db.html"
+    main([str(schema), "--theme", "nord"])
+    tables = embedded_data(page.read_text())["auto"]["tables"] | {"Customer": {"x": 1234, "y": 777}}
+    save_canvas(page, tables)
+    before = page.read_text()
+
+    assert main([str(schema), "--svg"]) == 0
+    svg = (tmp_path / "db.svg").read_text()
+    assert svg_positions(svg)["Customer"] == (1234, 777)
+    assert 'fill="#2e3440"' in svg
+    assert page.read_text() == before  # the page is only read
+
+    main([str(schema), "-o", str(tmp_path / "out.svg"), "--theme", "solarized"])
+    out = (tmp_path / "out.svg").read_text()
+    assert svg_positions(out)["Customer"] == (1234, 777)
+    assert 'fill="#fdf6e3"' in out
 
 
 def test_cli_reports_missing_file(tmp_path, capsys):

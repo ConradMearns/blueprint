@@ -25,7 +25,14 @@ uv run bp mydb.yaml -o out.html  # choose the output path
 uv run bp mydb.yaml -o -         # write to stdout
 uv run bp mydb.yaml --open       # also open it in a browser
 uv run bp mydb.yaml --theme nord   # pick a colour theme
+uv run bp mydb.yaml --svg          # write mydb.svg instead (also: -o diagram.svg)
 ```
+
+`--svg` draws the same diagram as a standalone SVG image (plain shapes and
+text, no scripts or CSS) for docs and slides. It uses the canvas layout and
+theme saved in `mydb.html` when that page exists, without changing it; `--layout`,
+`--relayout` and `--theme` work as for the page. The page's **Export SVG** button
+does the same from the browser, with the current layout and the theme on screen.
 
 Themes: `monokai` (default), `auto` (light or dark following your OS),
 `light`, `dark`, `dracula`, `nord`, `solarized`. The theme is stored in the page, so
