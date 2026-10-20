@@ -1,106 +1,66 @@
 # blueprint
 
-An infinite-canvas **ER diagram editor driven by [LinkML](https://linkml.io/)**.
+Render a **[LinkML](https://linkml.io/) schema as an ER diagram** in a single,
+static HTML file.
 
 ![blueprint rendering a LinkML schema as an ER diagram](docs/screenshot.png)
 
-Point it at a LinkML schema and blueprint paints an entity-relationship diagram —
+Point it at a LinkML schema and blueprint draws an entity-relationship diagram —
 one table per class, columns from slots, and edges for the foreign-key
-relationships implied by slots whose range is another class. Tables can be
-dragged around freely on an infinite canvas powered by
-[Svelte Flow](https://svelteflow.dev/).
+relationships implied by slots whose range is another class. The output is one
+self-contained `.html` file (inline CSS + SVG, no JavaScript) you can open
+locally, commit, or host anywhere.
 
-This is the same idea as [dbml](https://dbml.dbdiagram.io/) and its canvas, with
-two deliberate differences:
+Same idea as [dbml](https://dbml.dbdiagram.io/), except **LinkML is the source
+of truth** — no custom DSL.
 
-- **LinkML is the source of truth** for _what_ to draw — no custom DSL.
-- A **separate layout file** records _where_ to draw. The schema stays clean and
-  authoritative while users rearrange the canvas; positions never leak back into
-  the model.
+## Usage
 
-## Stack
-
-- [SvelteKit](https://svelte.dev/docs/kit) + Svelte 5 (runes), TypeScript
-- [Bun](https://bun.com/) for tooling and package management
-- [`@xyflow/svelte`](https://svelteflow.dev/) (Svelte Flow) for the canvas
-- [`yaml`](https://www.npmjs.com/package/yaml) to parse LinkML
-
-## CLI (`bp`)
-
-The primary way to use blueprint is the `bp` command — point it at a LinkML file
-and it opens that file in the canvas, no import/export needed:
+Requires Python 3.11+ and [uv](https://docs.astral.sh/uv/).
 
 ```bash
-bun install
-bun link            # makes `bp` available on your PATH
-bp mydb.yaml        # builds on first run, serves, opens the browser
+uv run bp mydb.yaml              # writes mydb.html next to the schema
+uv run bp mydb.yaml -o out.html  # choose the output path
+uv run bp mydb.yaml -o -         # write to stdout
+uv run bp mydb.yaml --open       # also open it in a browser
 ```
 
-Or without linking: `bun run bp mydb.yaml`.
+To put `bp` on your PATH: `uv tool install .`
 
-In this **file-backed mode**:
+Schema problems (e.g. a slot whose range is an unknown class) are printed to
+stderr and listed at the top of the page; the affected columns are highlighted.
 
-- the schema is read from `mydb.yaml`;
-- table positions autosave to a **neighbor file `mydb.bp.json`** as you drag;
-- edits in the sidebar autosave back to `mydb.yaml` (when they parse cleanly);
-- the server **watches both files** and pushes external changes to the canvas
-  live (over SSE), so editing `mydb.yaml` in another editor updates the diagram
-  — the app's own saves are suppressed so they don't echo back.
+## Layout
 
-The schema stays the source of truth for _what_ to draw; `mydb.bp.json` only
-holds _where_. Commit the schema, optionally commit the layout, ignore neither.
+Tables are laid out automatically in columns by foreign-key depth: a table
+sits to the left of every table it references, so edges flow left to right.
+Edges that skip a column are routed through a reserved lane rather than under
+other tables. There is no layout file — re-run `bp` after editing the schema.
 
-```
-bp <schema.yaml> [--port 4321] [--no-open] [--rebuild]
-```
-
-## Browser mode (no CLI)
+## Development
 
 ```bash
-bun run dev        # http://localhost:5173
+uv run pytest
 ```
 
-Run without `bp` and the app falls back to a bundled example, `localStorage` for
-layout, and load/export buttons — so it still works as a pure browser app or
-static deployment.
-
-## Quality gates
-
-```bash
-bun test           # unit tests (Vitest)
-bun run check      # type-check (svelte-check)
-bun run lint       # prettier + eslint
-bun run build      # production build
-```
-
-## How it works
-
-| Concern                       | Module                                             |
-| ----------------------------- | -------------------------------------------------- |
-| Parse LinkML → ER model       | `src/lib/linkml/parse.ts`                          |
-| ER model types                | `src/lib/linkml/types.ts`                          |
-| Model + layout → flow graph   | `src/lib/linkml/toFlow.ts`                         |
-| Layout persistence (browser)  | `src/lib/layout/store.ts`                          |
-| Disk read/write (file-backed) | `src/lib/server/store.ts`                          |
-| Neighbor path (`.bp.json`)    | `src/lib/server/paths.ts`                          |
-| Schema/layout HTTP endpoints  | `src/routes/api/{schema,layout}/`                  |
-| File watcher → SSE            | `src/lib/server/watch.ts`, `src/routes/api/watch/` |
-| `bp` CLI launcher             | `bin/bp.js`                                        |
-| Table node rendering          | `src/lib/components/TableNode.svelte`              |
-| Canvas + editor               | `src/routes/+page.svelte`                          |
+| Concern                 | Module                    |
+| ----------------------- | ------------------------- |
+| Parse LinkML → ER model | `src/blueprint/parse.py`  |
+| Layout + HTML/SVG       | `src/blueprint/render.py` |
+| `bp` command            | `src/blueprint/cli.py`    |
 
 ### LinkML subset supported
 
 `classes` with inline `attributes` and/or referenced top-level `slots`,
 reusable `slots`, `slot_usage` overrides, `is_a` / `mixins` inheritance, and
-`imports` (slots/classes/types/enums pulled from sibling files, resolved on disk
-by `bp`). Attributes and slots are interchangeable. A slot is treated as a
-**foreign key** when its `range` matches another class name; `identifier: true`
-(or `key: true`) marks the **primary key**.
+`imports` (slots/classes/types/enums pulled from sibling files, resolved
+relative to the importing file). Attributes and slots are interchangeable. A
+slot is treated as a **foreign key** when its `range` matches another class
+name; `identifier: true` (or `key: true`) marks the **primary key**.
 
-Equivalence across these representations is locked down by
-`src/lib/linkml/fixtures/` — every variant of the ecommerce schema must produce
-the same canvas (see that folder's README).
+Equivalence across these representations is locked down by `tests/fixtures/` —
+every variant of the ecommerce schema must produce the same diagram (see that
+folder's README).
 
 ## Issue tracking
 

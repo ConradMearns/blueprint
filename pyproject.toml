@@ -1,0 +1,20 @@
+[project]
+name = "blueprint"
+version = "0.1.0"
+description = "Render a LinkML schema as a static ER-diagram HTML page"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = ["pyyaml>=6"]
+
+[project.scripts]
+bp = "blueprint.cli:main"
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -1,8 +1,9 @@
 ## Project Configuration
 
-- **Language**: TypeScript
-- **Package Manager**: bun
-- **Add-ons**: prettier, eslint, vitest
+- **Language**: Python 3.11+ (stdlib + PyYAML)
+- **Package Manager**: uv
+- **Tests**: pytest (`uv run pytest`)
+- **Output**: a single static HTML file — no JS runtime, no frontend framework
 
 ---
 
